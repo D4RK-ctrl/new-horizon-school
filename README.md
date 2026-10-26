@@ -4,9 +4,9 @@ A school website and audience voting platform prototype for a future school pitc
 
 ## Status
 
-Phase 1 frontend foundation is reviewed and present in `main`. Phase 2A adds the initial private PostgreSQL schema as versioned Supabase migrations with static verification. Migrations have not been applied; database integration tests remain pending. Phase 0/0B planning remains authoritative. Phase 2B requires separate architect authorization.
+Phase 1 frontend foundation is reviewed and present in `main`. Phase 2A's three private-schema migrations have passed actual execution, integration tests, local permission/Data API checks, and deterministic clean replay on disposable local Supabase PostgreSQL 17.11. No remote database has been touched. Phase 0/0B planning remains authoritative. Phase 2B requires separate architect authorization.
 
-No running backend, Supabase client packages, authentication, application access policies/RPCs, OTP, vote submission, enquiry intake, administrative mutations, analytics collection, or cloud resources exist. Voting and form controls are disabled. Admin routes are public demo layouts, **not secured portals**. No personal data is collected or persisted.
+No connected application backend, Supabase browser packages, authentication UI, application access policies/RPCs, OTP, vote submission, enquiry intake, administrative mutations, analytics collection, or cloud resources exist. Voting and form controls are disabled. Admin routes are public demo layouts, **not secured portals**. No real personal data is collected; local database verification uses synthetic Auth identities only.
 
 ## Planned stack
 
@@ -27,7 +27,7 @@ No running backend, Supabase client packages, authentication, application access
 
 ## Run locally
 
-Use **Node.js 22 LTS, version 22.12.0 or newer within the 22.x line**, and npm. `.nvmrc` selects 22; use a current patched 22.x release when setting up a machine. Implementation validation used the host's Node 22.13.1 and npm 10.9.2. The only direct dependency is stable Vite 8.3.5 (development/build tooling), pinned in `package.json` and `package-lock.json`.
+Use **Node.js 22 LTS, version 22.12.0 or newer within the 22.x line**, and npm. `.nvmrc` selects 22; use a current patched 22.x release when setting up a machine. Validation used the host's Node 22.13.1 and npm 10.9.2. Direct development dependencies are Vite 8.3.5 and the official Supabase CLI 2.122.0, pinned in `package.json` and `package-lock.json`. The CLI is local verification tooling, not a browser dependency. Docker is needed only for database verification, not the frontend.
 
 ```sh
 npm ci
@@ -97,6 +97,6 @@ Candidate-specific social-preview HTML and the documented Vercel Function are **
 
 Frontend fixtures are public examples, not an authorization layer. Never connect private ledgers or hidden totals to this bundle and rely on UI hiding. Future visibility enforcement, verified-phone eligibility, atomic voting, staff roles, audit records, and result republication belong to the trusted backend stages. No voting records or privileges are simulated in local storage.
 
-Never put service-role credentials, database passwords, SMS secrets, or other secrets into frontend code or `VITE_*` variables. No real credentials are configured. Backend access policies/RPCs, Storage, production security headers, social previews, QR support, approved media, and accessibility/security audits remain later-stage work. Phase 2A only declares private tables, deny-by-default permissions, and enabled RLS in unapplied SQL migrations; it supplies no usable application access path.
+Never put service-role credentials, database passwords, SMS secrets, or other secrets into frontend code or `VITE_*` variables. No real credentials are configured. Backend access policies/RPCs, Storage, production security headers, social previews, QR support, approved media, and accessibility/security audits remain later-stage work. Phase 2A provides locally verified private tables, deny-by-default permissions, and enabled RLS; it supplies no usable application access path. Local CLI credentials are generated at runtime and must never be committed or copied into the frontend.
 
 Toolchain references: [Node release schedule](https://github.com/nodejs/Release), [Vite requirements](https://vite.dev/guide/). Future provider operational limits are documented in the architecture; no services are configured by this stage.

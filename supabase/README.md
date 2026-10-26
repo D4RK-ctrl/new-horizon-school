@@ -1,6 +1,6 @@
 # Database baseline (Phase 2A)
 
-Versioned Supabase PostgreSQL migrations only; no deployed database, seed data, Auth changes, policies, voting/CRUD RPCs, or frontend integration. The website continues using Phase 1 fixtures.
+Versioned Supabase PostgreSQL migrations, now executed and verified locally. No remote database, seed data, Auth schema changes, policies, voting/CRUD RPCs, or frontend integration. The website continues using Phase 1 fixtures. Only synthetic local Auth identities were provisioned through the supported Auth API.
 
 ## Migration order
 
@@ -12,23 +12,31 @@ Apply the complete baseline in filename order as the same trusted migration owne
 | `20261027000200_application_tables.sql` | All 16 tables, keys and CHECKs; circular competition/result FK after publication tables; RLS and explicit table/sequence revokes before commit. |
 | `20261027000300_indexes_and_immutability.sql` | Initial indexes and invoker-only triggers rejecting immutable-record UPDATE/DELETE/TRUNCATE. |
 
-Each file has an explicit transaction. Do not use a partial baseline. `app` must not already exist: absence of `IF NOT EXISTS` intentionally rejects conflicting objects. Once applied anywhere, preserve migration history and add a later ordered migration for corrections. No migration has been applied during Phase 2A.
+Each file has an explicit transaction. Do not use a partial baseline. `app` must not already exist: absence of `IF NOT EXISTS` intentionally rejects conflicting objects. Preserve applied migration history and add a later ordered migration for corrections unless the architect authorizes local-only baseline repair. All three files were applied successfully and replayed on a disposable local instance; none was changed during verification or applied remotely.
 
-## Local setup when tooling is authorized and available
+## Local verification setup
 
-No installation or daemon reconfiguration is part of this phase. Future execution needs an isolated disposable **local** Supabase PostgreSQL environment (PostgreSQL 15+), supplying Supabase-managed `auth.users(id uuid)` and `anon`, `authenticated`, and `service_role`. Run as its trusted migration owner with permission to reference Auth and create schema/functions. Do not manufacture or modify Auth internals, link an existing remote project, or use real student/voter data.
+The official Supabase CLI 2.122.0 is pinned as a project-local npm development dependency, using the supported npm installation method. Docker Desktop must be running in Linux-container mode. `config.toml` identifies the disposable project as `nhs-phase2a-verification`, with API port 55431, PostgreSQL port 55432, and shadow port 55430. It exposes only `public`/`graphql_public` through the API; `app` is excluded. No project is linked remotely and no credentials are stored in the configuration.
 
-If using Supabase CLI later, separately authorize/init its local configuration and Docker stack. Keep `app` outside `[api].schemas`; use the CLI's local migration workflow. No CLI config is included here, so `supabase start` is not yet a ready-to-run repository command.
-
-Alternatively, once this disposable database and `psql` exist, apply files explicitly. The example's libpq service `nhs_schema_test` must be configured locally for loopback and the disposable database; credentials belong outside the repository. Run from the repository root:
+The configuration disables optional services; the startup exclusion list also avoids unnecessary containers. Email auto-confirmation is enabled only for synthetic local verification, and no real mail/SMS provider is configured. These are not production authentication settings. Use Node 22.x and run from the repository root (Windows PowerShell users can use `npx.cmd` for reliable argument forwarding):
 
 ```sh
-psql "service=nhs_schema_test" -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261027000100_private_app_schema.sql
-psql "service=nhs_schema_test" -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261027000200_application_tables.sql
-psql "service=nhs_schema_test" -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261027000300_indexes_and_immutability.sql
+npm ci
+npx supabase start --exclude=realtime,storage-api,imgproxy,mailpit,postgres-meta,studio,edge-runtime,logflare,vector,supavisor
+npx supabase migration list --local
 ```
 
-Use a fresh disposable database for each replay. Direct psql application does not record Supabase CLI migration history; do not mix application methods without deliberate history reconciliation. Do not run `supabase db push`, link a cloud project, or reset a shared database for this phase.
+On a fresh local database, `start` applies the migration chain. To apply pending migrations to this already-started disposable instance, use `npx supabase migration up --local`. Always keep explicit `--local` on database commands and do not link a project. The existing `auth.users` and API roles come from Supabase's managed initialization, not application-written substitutes.
+
+Clean replay is deliberately destructive only to this named disposable local database:
+
+```sh
+npx supabase db reset --local --no-seed
+npx supabase db lint --local --schema app --level warning --fail-on warning
+npx supabase migration list --local
+```
+
+Do not use `--linked`, `--project-ref`, `--db-url`, `supabase db push`, or reset a shared instance. Use psql inside the owned local database container for tests, so no host PostgreSQL installation is needed. The two untracked logo files are unrelated and must remain untouched.
 
 ## Static verification (available now)
 
@@ -40,17 +48,53 @@ git diff --check
 
 The new suite checks migration order/transactions and lexical delimiters, the 16-table inventory/primary keys, FK creation order, grants/defaults, RLS declarations, key integrity clauses, immutable triggers, and indexes. It rejects policies, privileged routines, seed inserts, and Auth/public-table mutations. These are structural source checks, **not PostgreSQL parsing or execution**. No parser dependency or database substitute was installed.
 
-## Integration verification (pending)
+## Integration verification
 
-After a clean replay, provision one synthetic identity through LOCAL Auth's supported interface and obtain its UUID. Neither the migrations nor the script below writes to `auth.users`. As the same trusted migration owner, run:
+After starting/replaying, provision one synthetic identity through the LOCAL Auth signup API. Neither migrations nor test SQL writes to Auth internals. This PowerShell example keeps local keys, credentials, and tokens in memory rather than printing or saving them:
 
-```sh
-psql "service=nhs_schema_test" -X -v ON_ERROR_STOP=1 -v test_user_id=REPLACE_WITH_SYNTHETIC_LOCAL_AUTH_UUID -f supabase/tests/schema_verification.sql
+```powershell
+$localStatus = (& .\node_modules\.bin\supabase.cmd status -o json | ConvertFrom-Json)
+if ($localStatus.API_URL -ne 'http://127.0.0.1:55431') { throw 'Unexpected local API target' }
+$syntheticBody = @{
+    email = "phase2a-$([guid]::NewGuid())@example.test"
+    password = "Test-$([guid]::NewGuid())-9aZ!"
+} | ConvertTo-Json
+$syntheticSession = Invoke-RestMethod -Method Post -Uri "$($localStatus.API_URL)/auth/v1/signup" -Headers @{apikey=$localStatus.ANON_KEY} -ContentType 'application/json' -Body $syntheticBody
+Get-Content -Raw supabase/tests/schema_verification.sql | docker exec -i supabase_db_nhs-phase2a-verification psql -X -U postgres -d postgres -v ON_ERROR_STOP=1 -v "test_user_id=$($syntheticSession.user.id)"
+Remove-Variable localStatus,syntheticBody,syntheticSession
 ```
 
 The script inserts synthetic application fixtures within BEGIN/ROLLBACK and uses a temporary invoker-only assertion helper. On failure, ON_ERROR_STOP terminates psql and connection closure rolls back pending changes. Use only a disposable local database: truncate-rejection assertions deliberately exercise `TRUNCATE ... CASCADE` in exception subtransactions. They expect the immutable triggers to reject the statement.
 
-Pending tests cover table/PK/validated-constraint inventory, all-table RLS/no policies, effective schema/table/helper/default privileges, duplicate votes, cross-competition candidate FKs, invalid allowances/windows/visibility, valid rankings without totals, invalid result pointers/versions/row relationships, negative totals, all-zero winner rejection, adjustment state/review/approved-request rules, duplicate application, and immutable UPDATE/DELETE/TRUNCATE rejection. Inspect all catalog constraint definitions and indexes after replay as well. Runtime verification must use actual Supabase role inheritance/default grants and confirm the Data API excludes `app`.
+The executed tests cover table/PK/validated-constraint inventory, all-table RLS/no policies, effective schema/table/helper/default privileges, duplicate votes, cross-competition candidate FKs, invalid allowances/windows/visibility, valid rankings without totals, invalid result pointers/versions/row relationships, negative totals, all-zero winner rejection, adjustment state/review/approved-request rules, duplicate application, and immutable UPDATE/DELETE/TRUNCATE rejection.
+
+## Recorded verification results
+
+Verified on Docker client/server 29.4.2 (Linux containers/WSL2, 3.65 GiB), official CLI 2.122.0, Node 22.13.1/npm 10.9.2, and Supabase PostgreSQL 17.11 (`supabase/postgres:17.11.0.006`). Services were Auth v2.197.0, PostgREST v16.5, and Kong 2.8.1. No memory settings were changed; the reduced stack fit within the available memory.
+
+| Check | Actual result |
+| --- | --- |
+| Migration execution | All three existing migrations applied in order via `migration up --local`; history matched all three versions. |
+| Catalog inspection | 16 tables, 16 PKs, 40 FKs, 79 CHECKs, 14 unique constraints, 23 explicit indexes/53 total indexes, and 5 immutable triggers. Every constraint was validated and every index valid; definitions were inspected. Requested negative cases were executed, not every possible branch of all 79 CHECKs. |
+| Integration script | 35 assertion groups plus future table/function-default and helper-permission checks passed in BOTH rounds. All required duplicate, FK, bounds, visibility, result, adjustment, and immutable-operation rejections passed. |
+| Rollback | Both executions ended with ROLLBACK; all 16 application tables were empty, probe table/function absent, and Auth user count unchanged by the SQL test transaction. |
+| RLS/policies/SQL access | RLS enabled on 16/16; zero policies; anon/authenticated/service_role lacked direct privileges. Six real-role SELECT/INSERT attempts returned SQLSTATE 42501. A separate rollback-only test temporarily granted read access and confirmed no-policy RLS hid an existing synthetic row; grants/data rolled back. |
+| Data API | Anonymous and authenticated GET/POST requests with profile `app` returned 406/PGRST106 in both rounds. API OpenAPI paths contained no private app tables; public API root remained functional. |
+| Managed/default privileges | Existing managed relation/routine/schema inventories and ACLs matched the pre-migration baseline exactly; other creators' default ACLs were unchanged. Local Auth signup/password sign-in succeeded after migrations and reset. A rollback-only probe confirmed this creator's hardened defaults also apply in another temporary schema. |
+| Clean replay | `db reset --local --no-seed` succeeded, replayed all three files, removed the first synthetic identity, and produced an identical normalized app catalog (including all constraint/index/trigger definitions); the complete integration/Auth/API checks passed again. |
+| Supabase checks | Local migration history matched; `db lint --local --schema app --level warning --fail-on warning` returned no schema errors. |
+| Corrections | None: migration and integration-test SQL remain unchanged from commit `151409f`. |
+| Final repository checks | `npm test`: 18 passed, zero failed/skipped. `npm run build`: passed. Whitespace/link/credential-pattern checks passed. Both untracked logo files retained their original SHA-256 hashes; no frontend source or branding changes. |
+
+For the initial managed-ACL comparison only, services were bootstrapped from an ignored scratch workdir with identical project configuration and an empty migration directory. Original migration files were never moved or edited. The application chain was then applied through the root project's CLI. Clean replay used the root project's full migration chain. Temporary catalog/verification output remains ignored under `tmp/`; no keys/tokens or data volumes are tracked.
+
+Cleanup after verification removes only this disposable project's services and volumes, including its synthetic identities:
+
+```sh
+npx supabase stop --project-id nhs-phase2a-verification --no-backup
+```
+
+The disposable services and their volumes were stopped/removed after verification; synthetic identities were not retained. No remote database, cloud resource, or production configuration was touched. Passing these local checks does not prove compatibility with future Supabase-managed upgrades or provide Phase 2B voting/authorization guarantees.
 
 ## Security and migration risks
 

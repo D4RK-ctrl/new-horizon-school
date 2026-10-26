@@ -1,6 +1,6 @@
 # Database design
 
-Phase 2A implements the relational baseline in three ordered [Supabase migrations](../supabase/README.md). Static source checks pass; migrations and database integration assertions have not been executed because local database tooling is unavailable. PostgreSQL will be the authority for identity, permissions, time, voting, totals, and publication once separately authorized trusted operations exist. Application tables belong to private, non-Data-API-exposed `app`; `auth.users` remains provider-owned and unmodified.
+Phase 2A implements the relational baseline in three ordered [Supabase migrations](../supabase/README.md). All three migrations and the existing integration script passed on disposable local Supabase PostgreSQL 17.11, including clean reset/replay, catalog inspection, permission checks, and Data API exclusion. Existing managed-object ACLs and other creators' default privileges were unchanged. No migration or test corrections were required, and no remote database was touched. PostgreSQL will be the authority for application identity, voting and publication once separately authorized trusted operations exist. Application tables belong to private `app`; Auth identities were provisioned only through the local Auth API, without direct writes to Auth internals.
 
 ## Implemented baseline and deferred behavior
 
@@ -12,7 +12,7 @@ Phase 2A implements the relational baseline in three ordered [Supabase migration
 - Daily analytics keys use `site`, an allowlisted `page:<key>`, or a typed entity UUID (`event:`, `competition:`, `candidate:`). Candidate slugs are only competition-unique, so they cannot identify aggregate buckets globally. A future intake operation must validate referenced entity existence/publication; this polymorphic key is not a foreign key or an identity-tracking field.
 - All 16 tables enable RLS with no policies; namespace/table/sequence/helper privileges are revoked from PUBLIC and API roles, including service_role. Defaults apply only to the executing creator; global revokes intentionally affect that creator's future objects in other schemas without changing existing Auth objects. The single trigger helper is `SECURITY INVOKER`, not a privileged RPC. No role bootstrap, automatic action-audit insertion, updated-at trigger, access policy, or business operation is implemented. Enabled RLS does not constrain superusers/owners; unrestricted operators can disable triggers.
 
-The atomic-voting, adjustment workflow, public visibility, and publication sections below remain authoritative **future requirements**, not functionality supplied by Phase 2A. The integration script is committed for later execution on disposable local Supabase only; no remote database or service configuration was touched.
+The atomic-voting, adjustment workflow, public visibility, and publication sections below remain authoritative **future requirements**, not functionality supplied by Phase 2A. The integration script completed with ROLLBACK in both execution rounds; all 16 application tables remained empty, temporary probe objects disappeared, and Auth identity counts were unchanged by the test transaction. Local configuration and exact verification findings are in [supabase/README.md](../supabase/README.md). No remote database or remote service configuration was touched.
 
 ## Tables and relationships
 
