@@ -49,7 +49,14 @@ begin
         if table_oid is null or not (select relrowsecurity from pg_class where oid = table_oid) then raise exception 'Missing table/RLS: %', table_name; end if;
         if not exists (select 1 from pg_constraint where conrelid = table_oid and contype = 'p') then raise exception 'Missing primary key: %', table_name; end if;
         if exists (select 1 from pg_constraint where conrelid = table_oid and not convalidated) then raise exception 'Unvalidated constraint: %', table_name; end if;
-        if exists (select 1 from pg_policy where polrelid = table_oid) then raise exception 'Unexpected policy: %', table_name; end if;
+        -- Baseline has no policies. The access foundation adds only named SELECT
+        -- policies for non-login readers; client-role/default policies stay forbidden.
+        if exists (select 1 from pg_policy where polrelid = table_oid and not (
+            (polname = 'public_content_read' and polcmd = 'r'
+                and polroles = array[coalesce(to_regrole('nhs_public_reader')::oid, 0::oid)])
+            or (polname = 'own_active_staff_read' and polcmd = 'r'
+                and polroles = array[coalesce(to_regrole('nhs_identity_reader')::oid, 0::oid)])
+        )) then raise exception 'Unexpected client or mutation policy: %', table_name; end if;
         foreach role_name in array array['anon', 'authenticated', 'service_role'] loop
             if has_schema_privilege(role_name, 'app', 'USAGE,CREATE') or has_table_privilege(role_name, table_oid, 'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER') then raise exception 'Unexpected access for % on %', role_name, table_name; end if;
         end loop;

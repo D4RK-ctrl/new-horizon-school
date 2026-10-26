@@ -4,8 +4,10 @@ import { readFileSync, readdirSync } from 'node:fs';
 
 // Structural source checks only. This is not a PostgreSQL parser or database.
 const directory = new URL('../supabase/migrations/', import.meta.url);
-const files = readdirSync(directory).filter((name) => name.endsWith('.sql')).sort();
-const sources = files.map((name) => readFileSync(new URL(name, directory), 'utf8'));
+// Freeze checks to the reviewed Phase 2A baseline; forward access migrations
+// have their own suite and must not invalidate historical schema invariants.
+const files = readdirSync(directory).filter((name) => /^20261027000[123]00_.*\.sql$/.test(name)).sort();
+const sources = files.map((name) => readFileSync(new URL(name, directory), 'utf8').replace(/\r\n/g, '\n'));
 const sql = sources.map((source) => source.replace(/--[^\n]*/g, '')).join('\n');
 const expectedTables = ['staff_roles', 'media_assets', 'school_pages', 'events', 'competitions', 'candidates', 'gallery_items', 'competition_voters', 'votes', 'vote_adjustment_requests', 'vote_adjustments', 'result_publications', 'result_rows', 'enquiries', 'analytics_daily', 'audit_logs'];
 const immutable = ['votes', 'vote_adjustments', 'result_publications', 'result_rows', 'audit_logs'];

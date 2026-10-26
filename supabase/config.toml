@@ -4,7 +4,7 @@ project_id = "nhs-phase2a-verification"
 [api]
 enabled = true
 port = 55431
-schemas = ["public", "graphql_public"]
+schemas = ["api"]
 extra_search_path = ["public", "extensions"]
 max_rows = 1000
 

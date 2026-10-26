@@ -1,6 +1,6 @@
 # Architecture
 
-Proposed design only; no services or application code exist in Phase 0. See [requirements](REQUIREMENTS.md) for authoritative behavior and [database design](DATABASE_DESIGN.md) for transaction details.
+The overall product architecture remains planned. Phase 1 provides the fixture-based frontend; Phase 2A provides the verified private schema; Phase 2B-1 implements only reviewed read-only database access. See [requirements](REQUIREMENTS.md), [database design](DATABASE_DESIGN.md), and the implemented [access/role/bootstrap contract](ACCESS_FOUNDATION.md). Future voting, mutation and publication flows below are not implemented by this stage.
 
 ## System boundary
 
@@ -26,6 +26,8 @@ Use a multipage/static shell and small ES modules for navigation, forms, data ac
 Render accessible pages and approved content, manage session UX, format dates, open YouTube links, show authorized statistics and vote receipts, and provide admin forms. Disable/reconfirm controls to improve usability, but treat every request as attacker-controlled. Avoid rendering stored raw HTML; use plain text/structured blocks and escaped attributes. Restrict video identifiers and URLs, image formats/sizes, and external link targets. Use a content security policy and safe session handling; browser-held tokens make XSS prevention critical.
 
 ## Supabase responsibilities and access paths
+
+Implemented Phase 2B-1: only `api` is exposed locally, with five public content readers and five authenticated caller-status/role gates. Ten reviewed SECURITY DEFINER entry points are owned by two dedicated NOLOGIN roles without table ownership or RLS bypass. Their column grants and six SELECT policies constrain published content/approved public media or the caller's active staff row. Private helpers are invoker-only, and every routine has a fixed empty search_path. There are no client table/column grants or mutation policies; no role is inferred from editable metadata. Publication timestamps, candidate eligibility and permitted media are enforced in database responses; totals/results/rankings are absent. Full signatures, active-role semantics, operator bootstrap and real-role test results are in [ACCESS_FOUNDATION.md](ACCESS_FOUNDATION.md). The remaining access paths in the table are future requirements.
 
 Auth owns credentials, verified phones, sessions, and token verification. PostgreSQL owns roles, content state, ledger integrity, visibility decisions, aggregation, and audits. Storage owns media under bucket/object policies; the database records approved media metadata. Edge Functions handle narrow public intake needing abuse controls or secrets, not the voting transaction itself.
 

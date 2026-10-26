@@ -1,6 +1,6 @@
-# Database baseline (Phase 2A)
+# Local database migrations and verification
 
-Versioned Supabase PostgreSQL migrations, now executed and verified locally. No remote database, seed data, Auth schema changes, policies, voting/CRUD RPCs, or frontend integration. The website continues using Phase 1 fixtures. Only synthetic local Auth identities were provisioned through the supported Auth API.
+Phase 2A's verified schema is preserved. Phase 2B-1 adds read-only access through narrow `api` RPCs and dedicated-reader SELECT policies. See [ACCESS_FOUNDATION.md](../docs/ACCESS_FOUNDATION.md) for exact callable functions, ownership/security boundaries, local bootstrap, and current verification results. No remote database, seed data, Auth schema changes, voting/CRUD RPCs, or frontend integration. The website continues using Phase 1 fixtures; tests use supported local Auth APIs and synthetic identities only.
 
 ## Migration order
 
@@ -11,12 +11,14 @@ Apply the complete baseline in filename order as the same trusted migration owne
 | `20261027000100_private_app_schema.sql` | Private `app` namespace and creator-specific default privilege hardening. |
 | `20261027000200_application_tables.sql` | All 16 tables, keys and CHECKs; circular competition/result FK after publication tables; RLS and explicit table/sequence revokes before commit. |
 | `20261027000300_indexes_and_immutability.sql` | Initial indexes and invoker-only triggers rejecting immutable-record UPDATE/DELETE/TRUNCATE. |
+| `20261027000400_access_roles_and_policies.sql` | Two limited NOLOGIN owners, API namespace, column grants and six reader-only SELECT policies; private request-identity helper. |
+| `20261027000500_read_only_api.sql` | Five public projections, five authenticated status/role gates, validators and explicit execution allowlist. |
 
 Each file has an explicit transaction. Do not use a partial baseline. `app` must not already exist: absence of `IF NOT EXISTS` intentionally rejects conflicting objects. Preserve applied migration history and add a later ordered migration for corrections unless the architect authorizes local-only baseline repair. All three files were applied successfully and replayed on a disposable local instance; none was changed during verification or applied remotely.
 
 ## Local verification setup
 
-The official Supabase CLI 2.122.0 is pinned as a project-local npm development dependency, using the supported npm installation method. Docker Desktop must be running in Linux-container mode. `config.toml` identifies the disposable project as `nhs-phase2a-verification`, with API port 55431, PostgreSQL port 55432, and shadow port 55430. It exposes only `public`/`graphql_public` through the API; `app` is excluded. No project is linked remotely and no credentials are stored in the configuration.
+The official Supabase CLI 2.122.0 is pinned as a project-local npm development dependency, using the supported npm installation method. Docker Desktop must be running in Linux-container mode. `config.toml` retains the dedicated disposable project `nhs-phase2a-verification`, with API port 55431, PostgreSQL port 55432, and shadow port 55430. It now exposes only `api`; `app` and all private helpers are excluded. No project is linked remotely and no credentials are stored in the configuration.
 
 The configuration disables optional services; the startup exclusion list also avoids unnecessary containers. Email auto-confirmation is enabled only for synthetic local verification, and no real mail/SMS provider is configured. These are not production authentication settings. Use Node 22.x and run from the repository root (Windows PowerShell users can use `npx.cmd` for reliable argument forwarding):
 
@@ -32,7 +34,7 @@ Clean replay is deliberately destructive only to this named disposable local dat
 
 ```sh
 npx supabase db reset --local --no-seed
-npx supabase db lint --local --schema app --level warning --fail-on warning
+npx supabase db lint --local --schema app,api --level warning --fail-on warning
 npx supabase migration list --local
 ```
 
@@ -46,9 +48,17 @@ npm test
 git diff --check
 ```
 
-The new suite checks migration order/transactions and lexical delimiters, the 16-table inventory/primary keys, FK creation order, grants/defaults, RLS declarations, key integrity clauses, immutable triggers, and indexes. It rejects policies, privileged routines, seed inserts, and Auth/public-table mutations. These are structural source checks, **not PostgreSQL parsing or execution**. No parser dependency or database substitute was installed.
+The baseline suite explicitly checks only the original three migrations: order/transactions, table/PK inventory, FK order, grants/defaults, RLS, integrity clauses, immutable triggers, indexes, and absence of Phase 2A policies/privileged routines/seeds/Auth mutations. Forward access tests independently inspect the new API/owner/grant/policy/bootstrap/configuration boundaries. Sources normalize Windows CRLF. These are structural checks, not PostgreSQL execution; the separate integration suite uses actual local roles.
 
 ## Integration verification
+
+Current access verification (run only after a clean disposable replay, with no existing staff fixtures):
+
+```sh
+node supabase/tests/verify-access.mjs
+```
+
+The runner enforces the local project/loopback target, creates four synthetic Auth identities, runs the Phase 2A SQL script, bootstraps the first synthetic Super Admin, and checks 190 Auth/SQL/PostgREST assertions. Keys and tokens stay in memory. Fixtures remain for inspection and must be cleared by the **local** reset before rerunning; the original SQL regression transaction itself still rolls back. The regression script now permits only the named SELECT policies for the two inert owners, retaining client-privilege and immutable-record assertions. No Phase 2A migration was edited.
 
 After starting/replaying, provision one synthetic identity through the LOCAL Auth signup API. Neither migrations nor test SQL writes to Auth internals. This PowerShell example keeps local keys, credentials, and tokens in memory rather than printing or saving them:
 
@@ -68,7 +78,7 @@ The script inserts synthetic application fixtures within BEGIN/ROLLBACK and uses
 
 The executed tests cover table/PK/validated-constraint inventory, all-table RLS/no policies, effective schema/table/helper/default privileges, duplicate votes, cross-competition candidate FKs, invalid allowances/windows/visibility, valid rankings without totals, invalid result pointers/versions/row relationships, negative totals, all-zero winner rejection, adjustment state/review/approved-request rules, duplicate application, and immutable UPDATE/DELETE/TRUNCATE rejection.
 
-## Recorded verification results
+## Recorded Phase 2A baseline verification (before access foundation)
 
 Verified on Docker client/server 29.4.2 (Linux containers/WSL2, 3.65 GiB), official CLI 2.122.0, Node 22.13.1/npm 10.9.2, and Supabase PostgreSQL 17.11 (`supabase/postgres:17.11.0.006`). Services were Auth v2.197.0, PostgREST v16.5, and Kong 2.8.1. No memory settings were changed; the reduced stack fit within the available memory.
 
@@ -98,14 +108,14 @@ The disposable services and their volumes were stopped/removed after verificatio
 
 ## Security and migration risks
 
-All tables are private in `app`, have RLS enabled, and have no policies. PUBLIC/anon/authenticated/service_role receive no schema usage/create, table privileges, or helper execution. No exposed API schema is configured. A service role's RLS bypass does not grant object privileges. RLS is enabled, not forced: superusers/owners remain trusted, and unrestricted operators can disable triggers.
+All tables remain private in `app` with RLS enabled. Phase 2B-1 adds six SELECT-only policies for limited routine owners, with no client-role policies. PUBLIC/anon/authenticated/service_role retain no app schema usage/create, table/column privileges, or helper execution. Only explicit read-only RPC grants in exposed `api` are callable. Routine owners are NOLOGIN, have no table ownership or RLS bypass, and cannot create additional objects after migration. A service role's RLS bypass does not grant object privileges. Superusers/table owners remain trusted and can disable triggers.
 
 Defaults are creator-specific. PostgreSQL's implicit PUBLIC function execution cannot be removed by a schema-only revoke. Migration 1 therefore globally revokes future table/sequence/function API privileges for its creator, then removes scoped additions in `app`. This also affects **future objects this creator creates in other schemas**, but does not alter existing Auth/Supabase objects or grants. Review this impact before applying anywhere beyond a disposable test database. Different future creators need equivalent hardening. Defaults do not automatically enable RLS on future tables; each migration must explicitly enable it and revoke grants.
 
-Historical FKs use restrictive deletion: Auth account, competition, and candidate deletion can be blocked; future workflows use controlled deactivation/archiving. Immutable triggers also reject zero-row UPDATE/DELETE. Snapshot rows remain owner-insertable until future publication operations validate completeness. No automatic updated-at maintenance, action-audit insertion, role escalation protection, or application permission path exists yet. Cross-row ledger accuracy, vote allowance concurrency, verified-phone eligibility, nonnegative adjusted aggregate totals, exact reversals, lifecycle freezing, and correct winner/rank publication require future trusted operations, not these CHECKs alone.
+Historical FKs use restrictive deletion: Auth account, competition, and candidate deletion can be blocked; future workflows use controlled deactivation/archiving. Immutable triggers also reject zero-row UPDATE/DELETE. Snapshot rows remain owner-insertable until future publication operations validate completeness. Bootstrap now audits its one privileged action atomically, and role gates use protected current records; general mutation auditing/role management is not implemented. Cross-row ledger accuracy, vote allowance concurrency, verified-phone eligibility, nonnegative adjusted aggregate totals, exact reversals, lifecycle freezing, and correct winner/rank publication remain future work.
 
-## Phase 2B boundary
+## Remaining boundary
 
-Phase 2B needs separate architect authorization. Proposed work: reviewed owners/grants and scoped access paths, public/voter/admin/Super Admin RPCs, live role/phone checks, atomic vote locking, audited adjustment review/application, result aggregation/publication/republication, lifecycle restrictions, and real permission/concurrency tests. Do not expose private tables or connect the frontend first. No Phase 2B policies or business functions were added here.
+Only Phase 2B-1's read-only access/role/bootstrap foundation is authorized and implemented. Phase 2B-2 requires architect approval. Voting/phone eligibility, mutations/administrator management, adjustments/results, production operations, and frontend integration remain absent. Do not expose private tables or substitute a client role indicator for backend authorization.
 
 References: [PostgreSQL default privilege scope](https://www.postgresql.org/docs/current/sql-alterdefaultprivileges.html), [statement/TRUNCATE triggers](https://www.postgresql.org/docs/current/sql-createtrigger.html), [Supabase RLS](https://supabase.com/docs/guides/database/postgres/row-level-security), [migration history](https://supabase.com/docs/guides/deployment/database-migrations).

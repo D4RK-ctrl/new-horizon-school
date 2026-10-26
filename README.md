@@ -4,9 +4,9 @@ A school website and audience voting platform prototype for a future school pitc
 
 ## Status
 
-Phase 1 frontend foundation is reviewed and present in `main`. Phase 2A's three private-schema migrations have passed actual execution, integration tests, local permission/Data API checks, and deterministic clean replay on disposable local Supabase PostgreSQL 17.11. No remote database has been touched. Phase 0/0B planning remains authoritative. Phase 2B requires separate architect authorization.
+Phase 2B-1 adds a locally verified read-only database access foundation: published-content RPCs, caller-only account/staff checks, and a controlled local first-Super-Admin script. The verified Phase 2A migrations remain unchanged. The frontend still uses its Phase 1 fixtures; no remote database has been touched. Phase 0/0B planning remains authoritative. Phase 2B-2 requires separate architect authorization.
 
-No connected application backend, Supabase browser packages, authentication UI, application access policies/RPCs, OTP, vote submission, enquiry intake, administrative mutations, analytics collection, or cloud resources exist. Voting and form controls are disabled. Admin routes are public demo layouts, **not secured portals**. No real personal data is collected; local database verification uses synthetic Auth identities only.
+No connected frontend backend, Supabase browser packages, authentication UI, OTP, vote submission, enquiry intake, administrative mutations, analytics collection, or cloud resources exist. Read-only RPCs and limited internal-reader policies now exist in the local database migrations. Voting and form controls remain disabled. Admin routes are public demo layouts, **not secured portals**. No real personal data is collected; local database verification uses synthetic Auth identities only.
 
 ## Planned stack
 
@@ -24,6 +24,7 @@ No connected application backend, Supabase browser packages, authentication UI, 
 - [Development plan and open decisions](docs/DEVELOPMENT_PLAN.md)
 - [Phase 1 delivery and verification report](docs/PHASE_1_HANDOFF.md)
 - [Database migrations, local setup, verification, and Phase 2B boundary](supabase/README.md)
+- [Read-only access contract, permissions, local bootstrap, and Phase 2B-1 verification](docs/ACCESS_FOUNDATION.md)
 
 ## Run locally
 
@@ -97,6 +98,6 @@ Candidate-specific social-preview HTML and the documented Vercel Function are **
 
 Frontend fixtures are public examples, not an authorization layer. Never connect private ledgers or hidden totals to this bundle and rely on UI hiding. Future visibility enforcement, verified-phone eligibility, atomic voting, staff roles, audit records, and result republication belong to the trusted backend stages. No voting records or privileges are simulated in local storage.
 
-Never put service-role credentials, database passwords, SMS secrets, or other secrets into frontend code or `VITE_*` variables. No real credentials are configured. Backend access policies/RPCs, Storage, production security headers, social previews, QR support, approved media, and accessibility/security audits remain later-stage work. Phase 2A provides locally verified private tables, deny-by-default permissions, and enabled RLS; it supplies no usable application access path. Local CLI credentials are generated at runtime and must never be committed or copied into the frontend.
+Never put service-role credentials, database passwords, SMS secrets, or other secrets into frontend code or `VITE_*` variables. No real credentials are configured. The database now exposes only the reviewed read-only `api` RPCs; private `app` tables remain inaccessible directly, even to staff JWTs. Mutating APIs, Storage, production security headers, social previews, QR support, approved media, and independent security/accessibility audits remain later-stage work. Local CLI credentials are generated at runtime and must never be committed or copied into the frontend.
 
 Toolchain references: [Node release schedule](https://github.com/nodejs/Release), [Vite requirements](https://vite.dev/guide/). Future provider operational limits are documented in the architecture; no services are configured by this stage.
