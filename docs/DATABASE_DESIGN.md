@@ -1,0 +1,92 @@
+# Database design
+
+Proposal only: no SQL migrations are included in Phase 0. PostgreSQL is the authority for identity checks, permissions, time, voting, official totals, and result publication. Table names below belong to a private, non-Data-API-exposed `app` schema unless explicitly provider-owned.
+
+## Tables and relationships
+
+Use UUID primary keys by default, `timestamptz` timestamps, explicit foreign keys, and bounded text fields. Counters/totals use `bigint`; voting allowance is a bounded positive integer. Record creation/update actors for mutable administrative data.
+
+| Table | Important fields and relationships |
+| --- | --- |
+| `auth.users` (Supabase-owned) | Auth UUID, confirmed phone, credentials; accessed by narrow trusted helpers only. No application-managed passwords or OTP storage. |
+| `staff_roles` | `user_id` unique FK to Auth, `role` in admin/super_admin, active flag, granted_by/at. No user-editable roles. |
+| `school_pages` | Unique page key/slug, structured content, draft/published state, publisher/time. Home/about/admissions/contact content; no executable HTML. |
+| `events` | Unique slug, title, description, start/end, publication state, optional approved cover media. General school events, including competition events. |
+| `competitions` | Unique immutable published slug, optional event FK, title/description, positive `max_votes_per_voter`, `starts_at`, `ends_at`, listing publication timestamp, enabled/paused flags, `archived_at`, three visibility flags, nullable `current_result_publication_id`. |
+| `candidates` | Competition FK, unique `(competition_id, slug)`, public display name/description, approved photo FK, eligible flag, YouTube ID, nonnegative start seconds. A competition entry, not a global student identity registry. |
+| `media_assets` | Unique bucket/object path, MIME/bytes/dimensions, alt text, approval/permission status, uploader; no signed URL storage. Public derivative and private original are separate objects. |
+| `gallery_items` | Approved media FK, caption, display order, publication state; optional event FK. |
+| `competition_voters` | Composite PK `(competition_id, voter_id)` with Auth FK; durable lock/guard row. No phone copy and no client-editable counter. |
+| `votes` | UUID, competition FK, voter Auth FK, candidate FK scoped to competition, database acceptance timestamp. Immutable original accepted ledger. |
+| `vote_adjustment_requests` | Competition/candidate FKs, proposed nonzero signed delta, nonblank reason, proposer, reviewed_by/at, review state. Super Admin-only proposal/review workflow; transitions audited and controlled. |
+| `vote_adjustments` | Append-only applied ledger: competition/candidate, delta, reason, request FK unique, applied_by/at, optional `reverses_adjustment_id`. Actor/reason copied into immutable entry. |
+| `result_publications` | Competition FK, unique `(competition_id, version)`, publisher/time, ledger cutoff timestamp, outcome (`winners` or `no_votes_received`), correction notice for later versions. Append-only headers. |
+| `result_rows` | Composite PK `(publication_id, candidate_id)`, competition ID, original count, adjustment sum, official total, rank, winner/tie flags. Immutable snapshot for every eligible candidate, including zero totals. |
+| `enquiries` | Minimal contact name, one reply channel/value, message, notice version, separate optional marketing consent/time, created_at, handling state. Private, bounded inputs. |
+| `analytics_daily` | Composite key `(day, event_type, entity_key)`, aggregate count. Use a non-null site sentinel or typed canonical entity key; no per-user/session identity. |
+| `audit_logs` | Append-only event ID, actor UUID and role at action, action, target IDs, timestamp, bounded redacted change/reason data, correlation ID. Confidential Super Admin access. |
+
+Avoid destructive Auth-user cascades into votes, adjustments, publications, or audits. Use restrictive FKs and deactivate accounts; any eventual anonymization/deletion needs an approved process that preserves integrity and handles linked Auth references. Media referenced by published content must not be deleted through ordinary CRUD. Archive competitions with history rather than cascading deletes.
+
+## Constraints and indexes
+
+- `starts_at < ends_at`; positive bounded allowance; `show_live_counts` requires `show_vote_totals`. Publication/archiving state transitions enforced by trusted functions, not frontend forms.
+- Candidate has unique `(competition_id, id)` in addition to its PK. Votes and adjustments use composite FK `(competition_id, candidate_id)` to prevent cross-competition submissions.
+- `votes` unique `(competition_id, voter_id, candidate_id)` independently enforces duplicate rejection. Its index prefix also supports a voter's competition vote count.
+- Add `(competition_id, candidate_id)` on votes and adjustments for aggregations, and indexes on FK columns used in policies/joins. The unique request FK prevents applying an adjustment request twice.
+- Result headers have unique `(competition_id, id)`; competition's current-result pointer uses a composite FK to a publication in the same competition. Result rows likewise enforce matching publication/candidate competition via composite FKs. Create the circular current-publication FK after both tables exist.
+- Rank is positive; official total is nonnegative; stored original count + adjustment sum must equal official total. A winner must have a positive official total; a tied-winner flag requires a winner flag. Publication functions enforce cross-row outcome rules: positive maximum selects winner(s), all-zero totals select `no_votes_received` with every winner/tie flag false, and no eligible candidates reject publication. Cross-row maximum/winner decisions cannot be a simple row CHECK.
+- Index published listings by publication/start time and archive state, candidates by competition, audit by timestamp/actor/target, and enquiries by handling state/date. Add expression/partial indexes only for observed query needs; no premature partitioning or leaderboard cache.
+- State-change functions plus privilege revocation enforce cross-row/lifecycle rules (frozen voting configuration, last Super Admin protection, nonnegative adjusted totals). CHECK constraints alone cannot safely enforce these.
+
+## RLS and grants
+
+Enable RLS on every application table, including private-schema tables as defense in depth. Deny browser base-table SELECT/INSERT/UPDATE/DELETE by schema/table grants; default RLS denies access unless a narrowly defined policy allows it. Storage objects have separate staff-write and approved-public-read policies. Never expose the Auth schema.
+
+Expose named RPCs in the API schema: public content/candidate/statistics/results reads; authenticated own-vote-state and vote submission; staff content/configuration/publication RPCs; Super Admin role, audit, adjustment-review/apply RPCs. Never give the `authenticated` database role blanket staff access: it also represents ordinary voters. Every staff RPC checks active membership in `staff_roles` against `auth.uid()` at execution time.
+
+Function owners receive only necessary private table privileges and appropriate policies. A definer path that bypasses RLS must implement its own full authorization checks. Revoke function execution from `PUBLIC`, `anon`, and `authenticated` by default, then selectively grant entry points. No arbitrary-SQL RPC, caller-controlled schema/search path, or exposed helper function is permitted. Public aggregate responses never return raw ledger rows, hidden numeric fields, draft snapshots, audit reasons, or phone numbers. Ordinary admins receive operational aggregate summaries, not confidential ledgers.
+
+Define and test the visibility truth table from REQUIREMENTS. Public numeric totals always require `show_vote_totals`; during active voting, numeric responses/updates additionally require `show_live_counts`. Enforce `show_live_counts => show_vote_totals` as a database constraint. Public rankings require `show_rankings` and may be visible without numeric totals. Before publication, expose totals/ranks only during active voting and with their required flags. After closure but before publication, expose no public results, including totals, rankings, winner/tie labels, or a no-votes outcome. After publication, totals and ranks come from the selected immutable snapshot and still require their respective flags; `show_live_counts` no longer gates snapshot totals. Winner/tie labels or "No votes received" become public on publication. A later publication correction replaces the pointer atomically. Own accepted receipts remain available regardless of public count visibility. Every rule is enforced through authorized backend responses, not frontend hiding. Return only approved public API fields; prohibit hidden information in candidate ordering, metadata, exports, and cached responses. Use neutral candidate ordering when rankings are hidden; ranking permission never authorizes hidden totals.
+
+Public statistics are uncached initially, with no realtime table subscriptions. Visibility changes and result republication therefore affect the next authorized response; data already viewed or externally copied cannot be recalled.
+
+## Atomic voting algorithm
+
+Proposed `cast_vote(competition_id, candidate_id)` is a single short, volatile database function executed as one transaction at PostgreSQL READ COMMITTED. No external calls or browser round trips occur while locks are held.
+
+1. Derive `auth.uid()` from the validated session. Require a signed-in user, a confirmed current +91 E.164 phone in trusted Auth data, and trusted session evidence of SMS OTP authentication. Reject email-only/unverified sessions. Never accept a voter UUID, phone, allowance, or vote timestamp as input.
+2. Lock the competition row `FOR SHARE` before any voter guard. Configuration mutations, publication, archive, and adjustments use `FOR UPDATE` on that same row. Shared locks allow different voters concurrently while excluding configuration changes. Avoid `FOR KEY SHARE`, which does not block all relevant updates.
+3. Insert the guard `(competition_id, auth.uid()) ON CONFLICT DO NOTHING`, then lock that row `FOR UPDATE`. This works for two simultaneous first-time requests: the unique guard key makes the second insert wait and the subsequent lock serializes usage checks. All paths acquire locks in the same order: competition, voter guard, ledger. Use bounded lock/statement timeouts and a retryable response after rollback.
+4. With the guard held, issue fresh SQL statements to check published/enabled/unpaused/unarchived state, eligible candidate membership, and existing original vote. If the same candidate was already accepted, return an own-vote receipt as an idempotent replay; do not insert again or consume allowance. This receipt is not a new acceptance if the deadline has since passed.
+5. For a new vote, count existing `votes` for that voter/competition after locking, and reject when count is already N. READ COMMITTED plus separate post-lock statements in a volatile function must see prior committed submissions; do not combine the pre-lock count and insert in one stale snapshot/CTE. Do not use a client-maintained or independently updated counter.
+6. Immediately before insertion, use `clock_timestamp()` to verify `starts_at <= time < ends_at` and record that instant as accepted_at. Do not use transaction-start `now()` for a request that might have waited across the deadline. The acceptance instant is insertion validation time; a transaction validated before the deadline may commit after it.
+7. Insert the immutable vote, relying additionally on the unique constraint. Return its receipt and the voter's remaining allowance; commit everything together. Handle any unique violation without reporting a second acceptance; reread an own receipt only after a safe rollback/subtransaction. Any other failure rolls back the operation completely.
+
+Every insertion path must follow this algorithm; direct DML, imports, and service endpoints may not bypass it. N=3 example: a voter with two votes submits concurrently for two new candidates. Both share the competition lock, but only one holds the guard at a time. The first inserts vote three; the second then sees three and rejects. Simultaneous duplicates produce one ledger row. Different competitions use different guards and allowances.
+
+Guard rows do not reserve allowance, and adjustments never change usage counts. Accepted original rows cannot be updated or deleted by any application role; use denied grants and defense-in-depth rejection triggers. A trusted database operator remains outside the application threat boundary.
+
+## Adjustments, official totals, and publication
+
+Prototype policy: only Super Admins may initiate, review, and apply vote adjustments through dedicated authorized RPCs. A single Super Admin may propose an adjustment with reason, explicitly review it, and apply the approved request. Each of these three operations must commit its own protected, durable audit record atomically with its state change; audit-write failure aborts the operation. No ordinary admin may access this path. Reevaluate independent approval before a real-school deployment.
+
+The apply RPC locks the competition `FOR UPDATE`, rechecks the active Super Admin role, locks/rechecks the request, and computes the candidate's original count plus applied delta sum. Permit application only after voting closes and before archiving. Require the resulting total to remain nonnegative, create exactly one immutable ledger entry per request, and write its audit event in the same transaction. Original votes remain unchanged. Reversals require a new reviewed request with a link to the prior adjustment; reject duplicate reversal links in the initial model. Multiple signed corrections remain possible as separate reviewed requests.
+
+Publication also takes the exclusive competition lock and rechecks authorized admin authority and deadline closure. Reject publication when no eligible candidates exist. Otherwise aggregate original votes and applied adjustments for every eligible candidate with zero-filled counts. Compute shared ranks using `DENSE_RANK()` over official totals descending. If the maximum official total is greater than zero, set outcome `winners`, mark every candidate at that maximum as winner, and mark those winners tied only when more than one shares the highest positive total. If all eligible official totals are zero, set outcome `no_votes_received`, display "No votes received" after publication, and set every winner/tie flag false; a numeric rank of one alone never implies a winner. Deterministic display tie ordering never breaks an official tie. Enforce numeric/rank visibility independently of the published outcome.
+
+Insert the publication header and all rows, validate completeness and totals, record an audit event, and update `current_result_publication_id` atomically. Serialize publication/version allocation through the competition lock. An adjustment after publication does not mutate the public snapshot; a later explicit republication includes a correction notice and a new version. Retain older versions privately for audit. Archive locks the competition and preserves the selected version; no further adjustments/publication until a future approved unarchive policy exists.
+
+## Audit strategy
+
+Capture successful role changes, privileged account provisioning, content/media publication, configuration/visibility changes, pause/resume, adjustments/reviews, result publication, and archive operations through trusted functions/triggers. Actor comes from the session; timestamp comes from the database. Include redacted before/after configuration, reason, and target IDs. Original votes already provide the voting ledger; confidential audits need not duplicate personal voting choices.
+
+No application UPDATE/DELETE grants on audit rows. Store successful critical action and audit insert in the same transaction so audit failure aborts the action. Rollback also rolls back database audit inserts for denied operations: record security failures separately in redacted server/provider telemetry if required, rather than claiming a failed transaction left a durable audit row. Do not log OTPs, secrets, tokens, full phone numbers, or enquiry bodies. Ordinary admins cannot read confidential audit logs. Future production should export audits to restricted external retention to cover privileged database-operator tampering.
+
+## Privacy and retention
+
+Auth stores phone data; voting tables use pseudonymous UUIDs which remain personal data when linkable. Public candidate text/photos require school authorization and appropriate media permissions, especially for minors. Keep private originals separate from approved public derivatives. Do not collect birth dates, addresses, student identifiers, or voter names for this prototype.
+
+Proposed retention, pending school/architect approval: enquiries removed or irreversibly anonymized 90 days after closure; short-lived intake abuse logs retained at most 7 days without raw IP storage in the application; aggregate analytics retained 12 months. Keep vote/adjustment/audit records through a defined competition dispute window, whose duration must be approved before collecting real votes. Do not interpret indefinite retention as a production requirement. Auth/session/provider logs, backups, media caches, and exports require their own retention review.
+
+No automated deletion job is planned until retention policy, lawful handling, and dispute requirements are settled. Use synthetic data meanwhile. Account deletion must not cascade-delete ledger history or enable repeat voting through recreation; establish a privacy-preserving eligibility/tombstone policy and legal review before real use. Budget and test database plus Storage backups/restores separately; do not assume a free plan provides sufficient recovery.

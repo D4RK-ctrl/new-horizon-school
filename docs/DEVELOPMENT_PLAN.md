@@ -1,0 +1,65 @@
+# Development plan
+
+Phase 0 only is authorized. Every later phase requires explicit architect approval before implementation. The stages below are proposals, not authorization to install packages, create cloud resources, deploy, or process real data.
+
+## Phases, dependencies, and acceptance
+
+| Phase | Depends on | Proposed deliverable and acceptance criteria |
+| --- | --- | --- |
+| 0: Planning | Assigned brief | README, requirements, architecture, schema proposal, this plan, and ignore rules exist; voting integrity and privacy boundaries reviewed; no application functionality. |
+| 1: Foundation | Approved Phase 0 and Phase 1 scope | Vite/vanilla ES Modules skeleton, approved package versions/lockfile, placeholder pages, accessible navigation, documented npm scripts and placeholder environment example. Build/preview pass; no secrets in output. |
+| 2: Database and access | Approved schema/policy decisions; Phase 1 | Versioned migrations, deny-by-default grants/RLS, protected roles/bootstrap, content tables, Storage boundaries, and scoped RPCs. Fresh database setup reproducible; anonymous/voter/admin/Super Admin permission tests pass. |
+| 3: Public content and media | Phases 1-2 | All nine page types using published synthetic content; timestamp links, gallery, candidate HTML/social Function, canonical URLs, QR downloads, protected enquiry intake. Drafts inaccessible and crawler HTML verified without JS. Results page can show unpublished state. |
+| 4: Voter identity and voting | Phase 2; candidate UI from Phase 3 | +91 OTP flow, own-state/receipt UI, atomic cast-vote RPC. Duplicate, allowance, concurrency, deadline, eligibility, and retry tests pass; no public ledger writes. |
+| 5: Administration and results | Phases 2-4 | Staff login, content/candidate/competition management, visibility controls, reviewed adjustment ledger, role management, confidential audit access, result snapshots/republication and archives. Role escalation and disclosure tests pass. |
+| 6: Analytics and prototype deployment | Phases 3-5 | Minimal aggregate analytics, abuse controls, browser/accessibility review, separate preview environment, quota checks, recovery drill, and authorized Vercel prototype deployment. Synthetic end-to-end demo works; no production credentials/data in previews. |
+| 7: Production readiness (separate project gate) | School authorization, funded services, completed prototype review | Approved privacy/retention and media permissions, staff MFA, independent security review, realistic load/abuse/SMS tests, tested recovery, monitoring/incident owners, and hosting eligibility confirmed before real launch. |
+
+No phase completion automatically authorizes the next one. Architect review may split or reorder a stage while preserving its dependencies. SQL migrations and functional code begin only in approved later phases.
+
+## Testing strategy for implementation
+
+- Database authorization tests use the actual anonymous/authenticated roles and realistic Auth claims, not only a database owner. Try direct REST/table access, RPC/helper execution, hidden aggregates, private Storage, draft results, audit reads, staff self-promotion via metadata, and demoted staff with an old session.
+- Voting tests cover N=1 and larger values, different competitions, duplicate candidates, cross-competition candidate IDs, unverified/non-+91/email-only sessions, paused/archived/unpublished competitions, and nonexistent candidates. Original votes remain immutable after adjustments.
+- Use multiple independent database connections for simultaneous first-time guard creation, same-candidate retries, and distinct candidates when only one allowance remains. Assert accepted rows never exceed N and usage equals the original ledger. Repeat at the start/deadline and while admin operations hold locks; verify post-lock wall-clock validation and rollback behavior.
+- Verify request timeout after a successful commit can be retried for the same receipt without a second vote; fail transaction/audit inserts deliberately to confirm atomic rollback. Test READ COMMITTED/volatile function snapshot behavior in the actual deployed PostgreSQL configuration.
+- Test every valid visibility-flag combination across upcoming/open/paused/closed/published/archived states using backend responses as well as the UI. Reject `show_live_counts = true` with `show_vote_totals = false`. Numeric totals require `show_vote_totals` and, during active voting, additionally `show_live_counts`; rankings require `show_rankings` and may appear without totals. After closure but before publication, assert no public results. After publication, outcome/winner/tie labels are public while totals/ranks still honor their respective flags, independent of `show_live_counts`. Verify no hidden information in candidate ordering, metadata, exports, cached responses, or public API fields.
+- Result tests distinguish a single highest positive official total (one winner), multiple highest positive totals (tied winners), all-zero eligible totals ("No votes received", every winner/tie flag false), and no eligible candidates (publication rejected). Include ineligible-only entries, zero/one/many eligible candidates, positive/negative deltas, and adjustments that change the outcome to/from all-zero before explicit republication. A numeric rank of one must not imply an all-zero winner.
+- Adjustment tests permit one Super Admin to propose, review, and apply in the prototype and deny each operation to other roles. Assert each successful operation commits a protected, durable audit record; audit failure rolls back that operation. Test double application/reversal and rejected negative totals. Original vote records and remaining allowance never change. Published snapshots stay unchanged until explicit republication; readers see a complete old or new version, never partial results. Reevaluate independent approval before real-school deployment.
+- Browser checks cover mobile layouts, keyboard/focus, labels/error announcements, slow/offline networks, expired sessions, vote UX, and synthetic content. Inspect candidate HTML without running JavaScript; verify absolute metadata URLs, 404s for drafts, safe escaping, timestamp links, QR targets, and external social-preview caching behavior.
+- Abuse/privacy checks cover malformed/oversized enquiry/media input, active file content, arbitrary origins, unauthenticated spam, analytics poisoning, EXIF stripping, accidental tokens/phones in logs, and unintended personal data in bundles. Establish traffic/latency targets before meaningful load testing.
+- CI/build checks, later: locked dependency install, build, targeted unit checks for meaningful validation logic, database integration/concurrency checks, and secret scanning. Do not substitute mocked UI tests for database permission guarantees.
+
+## Manual configuration in later authorized stages
+
+1. Choose supported Node/Vite versions; initialize local Git only when useful and authorized. Create GitHub resources or commit/push only when explicitly requested. No such actions occurred in Phase 0.
+2. Create isolated Supabase development and production projects (or local test stack), choose region, configure exposed schema/grants, apply reviewed migrations, and securely bootstrap the initial Super Admin. Keep account owner credentials outside the repository.
+3. Configure Auth phone and staff email/password flows, redirect allowlists, supported SMS provider, delivery/trial restrictions, India-specific sender/template requirements, rate limits, OTP lifetime, CAPTCHA, and test-only phone fixtures. Confirm trusted SMS session claim validation. Disable test bypasses outside isolated testing.
+4. Create private staging/original and approved-public media buckets with explicit size/type and object policies. Configure public derivative URLs and upload approval workflow.
+5. Set publishable frontend project settings separately from server-only secrets. Configure the canonical HTTPS origin, candidate Function routes/manifest access, protected intake, CSP and other headers, and `no-store` statistics/metadata responses. Never copy production secrets into preview builds.
+6. Recheck Vercel plan eligibility and current quotas, Supabase limits/pausing, SMS budget, logs/backup capabilities, and restore access. Configure usage/error alerts and an owner; do not rely on a free tier for event availability.
+7. Obtain approved school content/permissions before replacing placeholders. Approve privacy notice, optional marketing consent language, enquiry handling, retention/dispute windows, and account recovery/deletion rules before using real personal data.
+
+Provider references and practical constraints are recorded in [ARCHITECTURE.md](ARCHITECTURE.md); recheck them before setup/deployment.
+
+## Decisions requiring architect/school review
+
+These do not block documentation. Phase 0B resolves visibility, all-zero/empty results, and the single-Super-Admin prototype adjustment policy below. Other proposed defaults require confirmation before the affected implementation stage.
+
+| Decision | Proposed default / unresolved scope |
+| --- | --- |
+| Visibility meaning (resolved Phase 0B) | Numeric totals require `show_vote_totals` and additionally `show_live_counts` during active voting; live requires totals. Rankings require `show_rankings` independently. No public results after closure before publication. Publication reveals outcome/winner/tie labels; totals/ranks still honor their flags. Enforce backend responses and prevent ordering/metadata/export/API leaks. |
+| Time/config edits | Freeze N, window, and candidate eligibility from start; pause/resume within original window; no reopening. Any emergency extension/disqualification requires an approved design. |
+| Adjustment review (prototype resolved Phase 0B) | Only Super Admins initiate/review/apply; one may perform all steps, each with a protected, durable audit record. Append-only adjustments preserve original votes, allowance, and published snapshots until explicit republication. Reevaluate independent approval, correction disclosure detail, and permissible reasons before real-school deployment. |
+| Tie/empty policy (resolved Phase 0B) | Highest positive official total wins; equal highest positive totals are tied winners. All-zero eligible totals display "No votes received" with no winner. No eligible candidates reject publication. |
+| Account lifecycle | No application deletion/recreation or phone changes during active voting. Define recovery, number recycling, duplicate-identity prevention, and privacy-compatible deletion before real use. |
+| Administrator scope | School-wide admins for this single-school prototype; confidential audits/adjustments reserved for Super Admin. Confirm enquiry handling permission and whether competition-scoped staff are needed. |
+| Content/permissions | School identity, contact details, approved imagery, candidate media permissions, and enquiry destination are not supplied. Continue with synthetic placeholders only. |
+| Retention and eligibility | Proposed enquiry/log/aggregate durations in database design; vote dispute window, marketing use, audience age handling, and final retention policy unresolved. No legal compliance claim. |
+| Operational targets | Expected concurrent voters, event size, polling latency, availability, recovery targets, SMS provider/budget, and production hosting plan remain to be selected. |
+
+## Phase 0 verification and handoff
+
+The directory was empty and was not a Git repository; no applicable local/ancestor AGENTS.md was found. No pre-existing application or credentials were discovered. Phase 0 creates only the six requested files. Verify file existence, Markdown links, whitespace, and secret patterns; review cross-document rules for N votes, candidate uniqueness, lock order, adjustments, publication, and visibility. `git diff --check` is not applicable without a repository; use an equivalent trailing-whitespace/final-newline check without initializing Git just for this check.
+
+No runtime tests are applicable because no application or database exists. Provider documentation checks establish planning context, not deployed behavior. The handoff must state remaining decisions, verification limits, and that no commit, push, GitHub repository, pull request, deployment, or Phase 1 work occurred. The next manual action is architect review and explicit Phase 1 authorization.
