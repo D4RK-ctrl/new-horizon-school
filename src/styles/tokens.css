@@ -1,0 +1,15 @@
+:root {
+  --forest: #163e36;
+  --forest-light: #245b4e;
+  --ink: #243d35;
+  --muted: #56665e;
+  --paper: #fcfaf4;
+  --white: #fffef9;
+  --line: #d9dfd3;
+  --sage: #e0e9dd;
+  --sand: #f0e4ce;
+  --rose: #efdfd9;
+  --focus: #ae4e23;
+  --radius: .75rem;
+  --container: 1200px;
+}
