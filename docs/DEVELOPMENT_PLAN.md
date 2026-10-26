@@ -1,6 +1,6 @@
 # Development plan
 
-Phase 0 only is authorized. Every later phase requires explicit architect approval before implementation. The stages below are proposals, not authorization to install packages, create cloud resources, deploy, or process real data.
+Phase 1 has passed review and is merged into `main`. Only Phase 2A (schema migrations and documentation) is currently authorized. It supplies three ordered private-schema migrations, 16 application tables, constraints/indexes, deny-by-default RLS/grants, and invoker-only immutability triggers. Static SQL checks pass; clean-database replay and all database integration tests remain pending. No PostgreSQL/Supabase installation or Docker reconfiguration was performed or authorized. Phase 2B and later work require separate architect approval.
 
 ## Phases, dependencies, and acceptance
 
@@ -8,14 +8,17 @@ Phase 0 only is authorized. Every later phase requires explicit architect approv
 | --- | --- | --- |
 | 0: Planning | Assigned brief | README, requirements, architecture, schema proposal, this plan, and ignore rules exist; voting integrity and privacy boundaries reviewed; no application functionality. |
 | 1: Foundation | Approved Phase 0 and Phase 1 scope | Vite/vanilla ES Modules skeleton, approved package versions/lockfile, placeholder pages, accessible navigation, documented npm scripts and placeholder environment example. Build/preview pass; no secrets in output. |
-| 2: Database and access | Approved schema/policy decisions; Phase 1 | Versioned migrations, deny-by-default grants/RLS, protected roles/bootstrap, content tables, Storage boundaries, and scoped RPCs. Fresh database setup reproducible; anonymous/voter/admin/Super Admin permission tests pass. |
+| 2A: Database schema | Reviewed Phase 1 in main; approved Phase 2A scope | Implemented private schema/table baseline, relational constraints/indexes, enabled RLS without policies, denied direct access, and immutable ledgers/snapshots. Ten static source tests pass; actual clean replay, constraints, trigger behavior, and role/default-grant integration tests are pending a disposable local database. |
+| 2B: Trusted access and operations (not started) | Architect review of 2A; executed schema integration checks and separately approved scope | Proposed reviewed owners/grants, scoped public/voter/admin/Super Admin access, role/identity checks, atomic voting, audited adjustment/publication workflows, and permission/concurrency tests. Final 2B boundaries require architect assignment; no RPCs/policies or frontend integration are authorized by 2A. |
 | 3: Public content and media | Phases 1-2 | All nine page types using published synthetic content; timestamp links, gallery, candidate HTML/social Function, canonical URLs, QR downloads, protected enquiry intake. Drafts inaccessible and crawler HTML verified without JS. Results page can show unpublished state. |
 | 4: Voter identity and voting | Phase 2; candidate UI from Phase 3 | +91 OTP flow, own-state/receipt UI, atomic cast-vote RPC. Duplicate, allowance, concurrency, deadline, eligibility, and retry tests pass; no public ledger writes. |
 | 5: Administration and results | Phases 2-4 | Staff login, content/candidate/competition management, visibility controls, reviewed adjustment ledger, role management, confidential audit access, result snapshots/republication and archives. Role escalation and disclosure tests pass. |
 | 6: Analytics and prototype deployment | Phases 3-5 | Minimal aggregate analytics, abuse controls, browser/accessibility review, separate preview environment, quota checks, recovery drill, and authorized Vercel prototype deployment. Synthetic end-to-end demo works; no production credentials/data in previews. |
 | 7: Production readiness (separate project gate) | School authorization, funded services, completed prototype review | Approved privacy/retention and media permissions, staff MFA, independent security review, realistic load/abuse/SMS tests, tested recovery, monitoring/incident owners, and hosting eligibility confirmed before real launch. |
 
-No phase completion automatically authorizes the next one. Architect review may split or reorder a stage while preserving its dependencies. SQL migrations and functional code begin only in approved later phases.
+No phase completion automatically authorizes the next one. Architect review may split or reorder a stage while preserving its dependencies. References to Phase 2 in later stage dependencies mean the required 2A/2B work, once separately assigned and verified. The initial SQL baseline is now authored, not applied. Preserve applied history and use forward migrations for later changes.
+
+Local setup, migration order, pending executable assertions, limitations, and default-privilege risks are documented in [supabase/README.md](../supabase/README.md). Use `node --test tests/schema-static.test.js` for available source checks, or `npm test` for these plus existing frontend tests. Actual database execution is pending tooling authorization/availability; do not report it as passed. Untracked logo files are preserved and excluded from this database phase; no frontend branding changes are included.
 
 ## Testing strategy for implementation
 

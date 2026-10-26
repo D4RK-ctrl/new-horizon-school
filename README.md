@@ -4,9 +4,9 @@ A school website and audience voting platform prototype for a future school pitc
 
 ## Status
 
-Phase 1: frontend foundation. Responsive public pages, client-side routing, synthetic competition/candidate fixtures, and public admin layout previews are implemented. Phase 0/0B planning remains authoritative for future product/security behavior. Phase 2 requires explicit architect authorization.
+Phase 1 frontend foundation is reviewed and present in `main`. Phase 2A adds the initial private PostgreSQL schema as versioned Supabase migrations with static verification. Migrations have not been applied; database integration tests remain pending. Phase 0/0B planning remains authoritative. Phase 2B requires separate architect authorization.
 
-No backend, Supabase packages, authentication, authorization, OTP, vote submission, enquiry intake, administrative mutations, analytics collection, or cloud resources exist. Voting and form controls are disabled. Admin routes are public demo layouts, **not secured portals**. No personal data is collected or persisted.
+No running backend, Supabase client packages, authentication, application access policies/RPCs, OTP, vote submission, enquiry intake, administrative mutations, analytics collection, or cloud resources exist. Voting and form controls are disabled. Admin routes are public demo layouts, **not secured portals**. No personal data is collected or persisted.
 
 ## Planned stack
 
@@ -23,6 +23,7 @@ No backend, Supabase packages, authentication, authorization, OTP, vote submissi
 - [Database design](docs/DATABASE_DESIGN.md)
 - [Development plan and open decisions](docs/DEVELOPMENT_PLAN.md)
 - [Phase 1 delivery and verification report](docs/PHASE_1_HANDOFF.md)
+- [Database migrations, local setup, verification, and Phase 2B boundary](supabase/README.md)
 
 ## Run locally
 
@@ -96,6 +97,6 @@ Candidate-specific social-preview HTML and the documented Vercel Function are **
 
 Frontend fixtures are public examples, not an authorization layer. Never connect private ledgers or hidden totals to this bundle and rely on UI hiding. Future visibility enforcement, verified-phone eligibility, atomic voting, staff roles, audit records, and result republication belong to the trusted backend stages. No voting records or privileges are simulated in local storage.
 
-Never put service-role credentials, database passwords, SMS secrets, or other secrets into frontend code or `VITE_*` variables. No real credentials are configured. Backend RLS/RPCs, Storage, production security headers, social previews, QR support, approved media, and accessibility/security audits remain later-stage work.
+Never put service-role credentials, database passwords, SMS secrets, or other secrets into frontend code or `VITE_*` variables. No real credentials are configured. Backend access policies/RPCs, Storage, production security headers, social previews, QR support, approved media, and accessibility/security audits remain later-stage work. Phase 2A only declares private tables, deny-by-default permissions, and enabled RLS in unapplied SQL migrations; it supplies no usable application access path.
 
 Toolchain references: [Node release schedule](https://github.com/nodejs/Release), [Vite requirements](https://vite.dev/guide/). Future provider operational limits are documented in the architecture; no services are configured by this stage.
