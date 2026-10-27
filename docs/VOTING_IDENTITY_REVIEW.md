@@ -1,5 +1,7 @@
 # Phase 2B-3A trusted SMS session proof
 
+This document retains the reviewed Phase 2B-3A evidence and limitations. The separately authorized [Phase 2B-3B voting engine](VOTING_ENGINE.md) adds a private identity bridge under the existing SMS owner; it changes none of the seven approved migrations, proof lifetime, gateway or proof-minting permissions. Historical statements below about voting being absent describe the 3A handoff.
+
 The original blocked diagnostic is preserved below. Phase 2B-3A now implements the architect-selected server-mediated SMS verification and private session proof. The voting engine remains **not implemented**; `cast_vote` and Phase 2B-3B require separate authorization. Current contracts and verification are after the historical evidence.
 
 ## Local evidence, 27 October 2026

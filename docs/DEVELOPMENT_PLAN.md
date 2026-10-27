@@ -1,6 +1,6 @@
 # Development plan
 
-Phase 2B-2 is reviewed and present in `main`. Only Phase 2B-3A trusted SMS-session proof is currently authorized. It adds a server-mediated explicit SMS exchange, private expiring session attestations, durable attempt limits, and real local Auth/API negative tests. The original email/SMS AMR blocker and selected solution are preserved in [VOTING_IDENTITY_REVIEW.md](VOTING_IDENTITY_REVIEW.md). No voting transaction, frontend forms, results/adjustments, role management, remote configuration, deployment or Docker memory changes are included. Phase 2B-3B requires separate architect authorization.
+Phase 2B-3A commit `70243af` passed source review. Only Phase 2B-3B atomic voting is now authorized on the same `phase-2b3/secure-voting` branch. It adds trusted SMS-gated original voting, caller-only receipts/state, ledger-derived allowances and real transaction/concurrency tests; see [VOTING_ENGINE.md](VOTING_ENGINE.md). The original identity blocker and reviewed solution remain in [VOTING_IDENTITY_REVIEW.md](VOTING_IDENTITY_REVIEW.md). No frontend integration, results/adjustments, role management, remote configuration, deployment, main merge or Phase 2B-4 is included.
 
 ## Phases, dependencies, and acceptance
 
@@ -11,8 +11,9 @@ Phase 2B-2 is reviewed and present in `main`. Only Phase 2B-3A trusted SMS-sessi
 | 2A: Database schema | Reviewed Phase 1 in main; approved Phase 2A scope | Implemented private schema/table baseline, constraints/indexes, enabled RLS without policies, denied direct access, and immutable ledgers/snapshots. Ten static tests plus actual migration execution, integration assertions, permission/Data API checks, lint, and deterministic local clean replay passed. |
 | 2B-1: Access foundation | Reviewed 2A in main; separately authorized scope | Reviewed and merged: published-content readers, caller-only status, exact role checks/capability gates, limited owners/RLS, and audited local bootstrap. Regression checks continue to protect this surface. |
 | 2B-2: Competition management | Reviewed 2B-1 in main; separately authorized scope | Reviewed and merged: nine staff RPCs, limited writer, original-window freeze and locks, atomic redacted audits, and real-RPC/lifecycle/concurrency regressions. |
-| 2B-3A: Trusted SMS proof | Reviewed 2B-2; architect-selected gateway design | Server-mediated SMS exchange, session/phone-bound expiring attestation, no browser proof minting, local provider evidence and negative/replay/regression tests. Await architect review; no vote submission. |
-| 2B-3B and later (not started) | Review of SMS proof and separately assigned scope | Voting transaction, role management, adjusted totals, result publication, enquiries and frontend Auth/integration remain deferred. No next-stage work is authorized by these checks. |
+| 2B-3A: Trusted SMS proof | Reviewed 2B-2; architect-selected gateway design | Source-reviewed gateway/session proof baseline at `70243af`; 15-minute limit and proof boundaries remain unchanged. |
+| 2B-3B: Atomic voting | Reviewed SMS proof; separately authorized scope | Original-vote RPC, own state/history, per-voter/competition serialization, fresh proof/window checks and real persisted-ledger race verification. Await architect review. |
+| 2B-4 and later (not started) | Review and separately assigned scope | Role management, adjusted totals, result publication, enquiries and frontend Auth/integration remain deferred. |
 | 3: Public content and media | Phases 1-2 | All nine page types using published synthetic content; timestamp links, gallery, candidate HTML/social Function, canonical URLs, QR downloads, protected enquiry intake. Drafts inaccessible and crawler HTML verified without JS. Results page can show unpublished state. |
 | 4: Voter identity and voting | Phase 2; candidate UI from Phase 3 | +91 OTP flow, own-state/receipt UI, atomic cast-vote RPC. Duplicate, allowance, concurrency, deadline, eligibility, and retry tests pass; no public ledger writes. |
 | 5: Administration and results | Phases 2-4 | Staff login, content/candidate/competition management, visibility controls, reviewed adjustment ledger, role management, confidential audit access, result snapshots/republication and archives. Role escalation and disclosure tests pass. |
@@ -21,7 +22,7 @@ Phase 2B-2 is reviewed and present in `main`. Only Phase 2B-3A trusted SMS-sessi
 
 No phase completion automatically authorizes the next one. Architect review may split or reorder a stage while preserving its dependencies. References to Phase 2 in later stage dependencies mean the required 2A/2B work, once separately assigned and verified. The initial baseline has now been applied only in a disposable local database. Preserve applied history and use forward migrations for later changes unless the architect explicitly approves local-only baseline corrections.
 
-Local setup, migration order, integration assertions, limitations, and permission risks are in [supabase/README.md](../supabase/README.md). Use `npm test` for source/HTTP checks; it does not replace the separately executed database suites. Untracked logo files remain preserved and excluded; no frontend branding changes are included. Await architect review before Phase 2B-3B.
+Local setup, migration order, integration assertions, limitations, and permission risks are in [supabase/README.md](../supabase/README.md). Use `npm test` for source/HTTP checks; it does not replace the separately executed database suites. Untracked logo files remain preserved and excluded; no frontend branding changes are included. Await architect review before Phase 2B-4.
 
 ## Testing strategy for implementation
 

@@ -1,8 +1,10 @@
 # Local database migrations and verification
 
-Phase 2B-3A adds forward migration `20261027000700_sms_session_proof.sql` after the six approved migrations: four private SMS-proof/abuse-control tables, three server-only operations and one authenticated own-session boolean check. Auth-managed tables/policies and the first six migrations are unchanged. The trusted gateway and isolated local SMS test setup are documented in [VOTING_IDENTITY_REVIEW.md](../docs/VOTING_IDENTITY_REVIEW.md); run its `local-sms.mjs` start/reset/stop workflow and all three integration suites for this phase. The generated dummy-provider/test-code config stays in ignored `tmp/`, never the tracked config or a remote deployment. No vote submission is implemented.
+Phase 2B-3B adds `20261027000800_voting_transactions.sql` after the seven reviewed files: private live-SMS identity bridge, limited voting owner, eight owner-only policies, `cast_vote` and `own_voting_state`. See [VOTING_ENGINE.md](../docs/VOTING_ENGINE.md) for contracts and the four-suite clean-replay workflow, including `node supabase/tests/verify-voting.mjs` after SMS verification. No frontend, results, adjustments, deployment or subsequent phase is included.
 
-The verified Phase 2A/2B-1 migrations are preserved. Phase 2B-2 adds nine current-staff competition/candidate management APIs with lifecycle locks and atomic audits. See [ACCESS_FOUNDATION.md](../docs/ACCESS_FOUNDATION.md) and [COMPETITION_MANAGEMENT.md](../docs/COMPETITION_MANAGEMENT.md) for exact contracts. No remote database, seed data, Auth schema changes, voting/result/adjustment/role-management APIs, or frontend integration. The website continues using Phase 1 fixtures; tests use supported local Auth APIs and synthetic identities only.
+The reviewed Phase 2B-3A layer, `20261027000700_sms_session_proof.sql`, provides four private proof/abuse-control tables, three server-only operations and one authenticated own-session boolean check. Its Auth-managed table boundaries and six preceding migrations are unchanged. The gateway and isolated local SMS setup remain documented in [VOTING_IDENTITY_REVIEW.md](../docs/VOTING_IDENTITY_REVIEW.md); use the current four-suite workflow above for Phase 2B-3B. Generated dummy-provider/test-code config stays in ignored `tmp/`, never the tracked config or a remote deployment.
+
+The verified Phase 2A/2B-1 migrations are preserved. Phase 2B-2 adds nine current-staff competition/candidate management APIs with lifecycle locks and atomic audits. See [ACCESS_FOUNDATION.md](../docs/ACCESS_FOUNDATION.md) and [COMPETITION_MANAGEMENT.md](../docs/COMPETITION_MANAGEMENT.md) for those baseline contracts. The website continues using Phase 1 fixtures; tests use supported local Auth APIs and synthetic identities only. No remote database, Auth schema changes, official result/adjustment/role-management APIs or frontend integration is included.
 
 ## Migration order
 
@@ -17,6 +19,7 @@ Apply the complete baseline in filename order as the same trusted migration owne
 | `20261027000500_read_only_api.sql` | Five public projections, five authenticated status/role gates, validators and explicit execution allowlist. |
 | `20261027000600_competition_management.sql` | Limited writer, seven owner-only policies, validators/locking/audit helpers, and nine authorized management RPCs. |
 | `20261027000700_sms_session_proof.sql` | Private SMS challenge/proof/key/rate tables, limited owner, two private Auth projections, three server-only operations and authenticated own-session validity. |
+| `20261027000800_voting_transactions.sql` | Narrow voting owner/identity bridge, eight RLS policies, atomic original votes and private own-state/receipt RPCs; existing immutable protections unchanged. |
 
 Each file has an explicit transaction. Do not use a partial baseline. Initially `app` must not exist: absence of `IF NOT EXISTS` intentionally rejects conflicting objects. Preserve applied migration history and add ordered forward migrations for changes. Original migrations remain unchanged; all application/execution is confined to the named disposable local instance, never a remote project.
 
@@ -121,6 +124,6 @@ Historical FKs use restrictive deletion: Auth account, competition, and candidat
 
 ## Remaining boundary
 
-Only Phase 2B-3A SMS proof is currently authorized on top of reviewed competition management. Phase 2B-3B requires architect approval. Vote submission, staff management, adjustments/results, deletion/archiving/uploads, production operations, and frontend integration remain absent. Do not expose private tables or substitute a client role/phone/AMR indicator for server authorization.
+Only Phase 2B-3B atomic voting is currently authorized on top of reviewed SMS proof and competition management. Phase 2B-4 requires architect approval. Staff management, adjustments/results, deletion/archiving/uploads, production operations and frontend integration remain absent. Do not expose private tables or substitute a client role/phone/AMR indicator for server authorization.
 
 References: [PostgreSQL default privilege scope](https://www.postgresql.org/docs/current/sql-alterdefaultprivileges.html), [statement/TRUNCATE triggers](https://www.postgresql.org/docs/current/sql-createtrigger.html), [Supabase RLS](https://supabase.com/docs/guides/database/postgres/row-level-security), [migration history](https://supabase.com/docs/guides/deployment/database-migrations).

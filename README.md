@@ -4,9 +4,9 @@ A school website and audience voting platform prototype for a future school pitc
 
 ## Status
 
-Phase 2B-3A adds a server-mediated SMS verification gateway and private session-bound proof to the reviewed competition-management backend. The six approved migrations remain unchanged; one forward migration is added. The frontend still uses Phase 1 fixtures; no remote database has been touched. The voting transaction and Phase 2B-3B remain unauthorized.
+Phase 2B-3B adds atomic original voting and caller-only state/receipts using the reviewed SMS session proof. The seven approved migrations remain unchanged; one forward migration is added. The frontend still uses Phase 1 fixtures; no remote database has been touched. Phase 2B-4 is not authorized.
 
-No connected frontend backend, Supabase browser packages, authentication UI, vote submission, enquiry intake, analytics collection, or cloud resources exist. Backend RPCs support published reads, current staff checks, limited competition/candidate mutations, and the separately isolated SMS proof gateway. No role-management, adjustment, or result-publication operations exist. Voting and frontend forms remain disabled. Admin routes are public demo layouts, **not secured portals**. Database verification uses synthetic local identities only; no real SMS delivery is configured.
+No connected frontend backend, Supabase browser packages, authentication UI, enquiry intake, analytics collection, or cloud resources exist. Backend RPCs support published reads, current staff checks, limited competition/candidate mutations, trusted SMS proof, and authenticated voting transactions. No role-management, adjustment, or result-publication operations exist. Frontend voting and forms remain disabled. Admin routes are public demo layouts, **not secured portals**. Database verification uses synthetic local identities only; no real SMS delivery is configured.
 
 ## Planned stack
 
@@ -27,6 +27,7 @@ No connected frontend backend, Supabase browser packages, authentication UI, vot
 - [Read-only access contract, permissions, local bootstrap, and Phase 2B-1 verification](docs/ACCESS_FOUNDATION.md)
 - [Competition/candidate RPCs, lifecycle, locks, audits, and Phase 2B-2 verification](docs/COMPETITION_MANAGEMENT.md)
 - [SMS gateway, session proof, local-only test configuration, and identity evidence](docs/VOTING_IDENTITY_REVIEW.md)
+- [Atomic voting RPCs, own receipts, lock order, timeouts and concurrency verification](docs/VOTING_ENGINE.md)
 
 ## Run locally
 
@@ -98,7 +99,7 @@ Vite development and preview servers supply HTML fallback for deep-route refresh
 
 Candidate-specific social-preview HTML and the documented Vercel Function are **not implemented in Phase 1**. The canonical route shape is preserved. When that function is authorized, add its rewrite before the SPA fallback and reuse the frontend assets. Client-rendered titles are not a substitute for crawler-readable social metadata. The prototype is marked `noindex, nofollow`.
 
-Frontend fixtures are public examples, not an authorization layer. Never connect private ledgers or hidden totals to this bundle and rely on UI hiding. Future visibility enforcement, verified-phone eligibility, atomic voting, staff roles, audit records, and result republication belong to the trusted backend stages. No voting records or privileges are simulated in local storage.
+Frontend fixtures are public examples, not an authorization layer. Never connect private ledgers or hidden totals to this bundle and rely on UI hiding. Visibility enforcement, verified-phone eligibility, atomic voting, staff roles, audit records and result republication must remain in trusted backend stages. No voting records or privileges are simulated in local storage.
 
 Never put service-role credentials, database passwords, SMS secrets, or other secrets into frontend code or `VITE_*` variables. No real credentials are configured. The database exposes only reviewed `api` RPCs; private `app` tables remain inaccessible directly, even to staff JWTs. Mutations independently require current active staff and atomically insert audits. Other product APIs, Storage, production security headers, social previews, QR support, approved media, and independent security/accessibility audits remain later-stage work. Local CLI credentials are generated at runtime and must never be committed or copied into the frontend.
 

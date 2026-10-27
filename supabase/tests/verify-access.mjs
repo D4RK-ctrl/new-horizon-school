@@ -171,7 +171,9 @@ async function main() {
   check((await rpc('published_events', { p_limit: 'not-an-integer' })).status === 400, 'Wrong argument type rejected');
   const invalidJWT = `${ordinary.access_token.slice(0, -8)}xxxxxxxx`;
   check((await request('/rest/v1/rpc/account_status', { body: {}, token: invalidJWT })).status === 401, 'Forged JWT rejected before RPC');
-  for (const name of ['cast_vote', 'publish_results', 'apply_adjustment', 'bootstrap_super_admin', 'manage_staff']) check((await rpc(name, {}, superAdmin)).status === 404, `Forbidden product endpoint not installed: ${name}`);
+  for (const name of ['publish_results', 'apply_adjustment', 'bootstrap_super_admin', 'manage_staff']) check((await rpc(name, {}, superAdmin)).status === 404, `Forbidden product endpoint not installed: ${name}`);
+  const noSmsVote=await rpc('cast_vote',{p_competition_id:comp,p_candidate_id:candidateZ},superAdmin);
+  check(noSmsVote.status===403&&noSmsVote.data.code==='42501','Staff email session cannot use voting without SMS proof');
 
   for (const user of [undefined, ordinary, admin, superAdmin, inactive]) {
     for (const table of ['staff_roles', 'votes', 'audit_logs', 'vote_adjustments', 'enquiries', 'result_rows', 'school_pages']) {
@@ -201,15 +203,15 @@ async function main() {
           if has_column_privilege(r,t.oid,t.attnum,'SELECT,INSERT,UPDATE,REFERENCES') then raise exception 'Client column privilege'; end if;
         end loop;
       end loop;
-      if (select count(*) from pg_policies where schemaname='app') <> 22 then raise exception 'Unexpected policy inventory'; end if;
+      if (select count(*) from pg_policies where schemaname='app') <> 30 then raise exception 'Unexpected policy inventory'; end if;
       if exists(select 1 from pg_policies where schemaname='app' and roles::text[] && array['public','anon','authenticated','service_role']) then raise exception 'Broad client policy'; end if;
-      if exists(select 1 from pg_policies where schemaname='app' and cmd<>'SELECT' and roles::text[] not in (array['nhs_management_writer'],array['nhs_sms_proof_owner'])) then raise exception 'Unexpected writer policy'; end if;
+      if exists(select 1 from pg_policies where schemaname='app' and cmd<>'SELECT' and roles::text[] not in (array['nhs_management_writer'],array['nhs_sms_proof_owner'],array['nhs_voting_writer'])) then raise exception 'Unexpected writer policy'; end if;
       if exists(select 1 from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='app' and c.relkind='r' and (not c.relrowsecurity or c.relowner in (select oid from pg_roles where rolname in ('nhs_public_reader','nhs_identity_reader','nhs_management_writer')))) then raise exception 'RLS bypass by owner'; end if;
       if exists(select 1 from pg_roles where rolname in ('nhs_public_reader','nhs_identity_reader','nhs_management_writer') and (rolcanlogin or rolsuper or rolcreatedb or rolcreaterole or rolreplication or rolbypassrls or rolinherit)) then raise exception 'Privileged routine owner'; end if;
-      if (select count(*) from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='api') <> 23 then raise exception 'API inventory'; end if;
+      if (select count(*) from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='api') <> 25 then raise exception 'API inventory'; end if;
       for f in select p.* from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='api' loop
         if not f.prosecdef or not ('search_path=""' = any(f.proconfig)) then raise exception 'Unsafe API function configuration'; end if;
-        if f.proowner not in (select oid from pg_roles where rolname in ('nhs_public_reader','nhs_identity_reader','nhs_management_writer','nhs_sms_proof_owner')) then raise exception 'Unexpected function owner'; end if;
+        if f.proowner not in (select oid from pg_roles where rolname in ('nhs_public_reader','nhs_identity_reader','nhs_management_writer','nhs_sms_proof_owner','nhs_voting_writer')) then raise exception 'Unexpected function owner'; end if;
         if exists(select 1 from aclexplode(coalesce(f.proacl,acldefault('f',f.proowner))) a where a.grantee=0) then raise exception 'PUBLIC function execute'; end if;
       end loop;
       if has_schema_privilege('anon','api','CREATE') or has_schema_privilege('nhs_public_reader','api','CREATE') or has_schema_privilege('nhs_identity_reader','app','CREATE') then raise exception 'Leaked CREATE grant'; end if;

@@ -66,6 +66,11 @@ begin
                 (table_name in ('sms_proof_key','sms_session_attestations','sms_verification_limits','sms_verification_challenges') and polname='sms_select' and polcmd='r')
                 or (table_name in ('sms_session_attestations','sms_verification_limits','sms_verification_challenges') and polname='sms_insert' and polcmd='a')
                 or (table_name in ('sms_verification_limits','sms_verification_challenges') and polname='sms_update' and polcmd='w')))
+            or (polroles=array[coalesce(to_regrole('nhs_voting_writer')::oid,0::oid)] and (
+                (table_name='competitions' and ((polname='voting_competition_select' and polcmd='r') or (polname='voting_competition_lock' and polcmd='w')))
+                or (table_name='candidates' and polname='voting_candidate_select' and polcmd='r')
+                or (table_name='competition_voters' and ((polname='voting_guard_select' and polcmd='r') or (polname='voting_guard_insert' and polcmd='a') or (polname='voting_guard_lock' and polcmd='w')))
+                or (table_name='votes' and ((polname='voting_own_votes' and polcmd='r') or (polname='voting_vote_insert' and polcmd='a')))))
         )) then raise exception 'Unexpected client or mutation policy: %', table_name; end if;
         foreach role_name in array array['anon', 'authenticated', 'service_role'] loop
             if has_schema_privilege(role_name, 'app', 'USAGE,CREATE') or has_table_privilege(role_name, table_oid, 'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER') then raise exception 'Unexpected access for % on %', role_name, table_name; end if;
