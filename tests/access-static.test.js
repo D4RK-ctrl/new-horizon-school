@@ -9,7 +9,7 @@ const publicNames = ['published_school_pages', 'published_events', 'published_co
 const protectedNames = ['account_status', 'is_admin', 'is_super_admin', 'require_admin', 'require_super_admin'];
 
 test('access: forward migration order and exact API inventory', () => {
-  assert.equal(readdirSync(new URL('../supabase/migrations/', import.meta.url)).filter((name) => name.endsWith('.sql')).length, 5);
+  assert.equal(readdirSync(new URL('../supabase/migrations/', import.meta.url)).filter((name) => /^20261027000[1-5]00_.*\.sql$/.test(name)).length, 5);
   assert.deepEqual([...routines.matchAll(/create function api\.(\w+)\(/g)].map((m) => m[1]), [...publicNames, ...protectedNames]);
   for (const source of [roles, routines]) { assert.match(source.trim(), /^begin;/); assert.match(source.trim(), /commit;$/); }
 });

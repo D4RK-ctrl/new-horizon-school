@@ -56,6 +56,12 @@ begin
                 and polroles = array[coalesce(to_regrole('nhs_public_reader')::oid, 0::oid)])
             or (polname = 'own_active_staff_read' and polcmd = 'r'
                 and polroles = array[coalesce(to_regrole('nhs_identity_reader')::oid, 0::oid)])
+            or (polroles = array[coalesce(to_regrole('nhs_management_writer')::oid, 0::oid)] and (
+                (table_name in ('competitions','candidates') and (
+                    (polname = 'management_select' and polcmd = 'r')
+                    or (polname = 'management_insert' and polcmd = 'a')
+                    or (polname = 'management_update' and polcmd = 'w')))
+                or (table_name = 'audit_logs' and polname = 'management_audit_insert' and polcmd = 'a')))
         )) then raise exception 'Unexpected client or mutation policy: %', table_name; end if;
         foreach role_name in array array['anon', 'authenticated', 'service_role'] loop
             if has_schema_privilege(role_name, 'app', 'USAGE,CREATE') or has_table_privilege(role_name, table_oid, 'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER') then raise exception 'Unexpected access for % on %', role_name, table_name; end if;

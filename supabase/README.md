@@ -1,6 +1,6 @@
 # Local database migrations and verification
 
-Phase 2A's verified schema is preserved. Phase 2B-1 adds read-only access through narrow `api` RPCs and dedicated-reader SELECT policies. See [ACCESS_FOUNDATION.md](../docs/ACCESS_FOUNDATION.md) for exact callable functions, ownership/security boundaries, local bootstrap, and current verification results. No remote database, seed data, Auth schema changes, voting/CRUD RPCs, or frontend integration. The website continues using Phase 1 fixtures; tests use supported local Auth APIs and synthetic identities only.
+The verified Phase 2A/2B-1 migrations are preserved. Phase 2B-2 adds nine current-staff competition/candidate management APIs with lifecycle locks and atomic audits. See [ACCESS_FOUNDATION.md](../docs/ACCESS_FOUNDATION.md) and [COMPETITION_MANAGEMENT.md](../docs/COMPETITION_MANAGEMENT.md) for exact contracts. No remote database, seed data, Auth schema changes, voting/result/adjustment/role-management APIs, or frontend integration. The website continues using Phase 1 fixtures; tests use supported local Auth APIs and synthetic identities only.
 
 ## Migration order
 
@@ -13,8 +13,9 @@ Apply the complete baseline in filename order as the same trusted migration owne
 | `20261027000300_indexes_and_immutability.sql` | Initial indexes and invoker-only triggers rejecting immutable-record UPDATE/DELETE/TRUNCATE. |
 | `20261027000400_access_roles_and_policies.sql` | Two limited NOLOGIN owners, API namespace, column grants and six reader-only SELECT policies; private request-identity helper. |
 | `20261027000500_read_only_api.sql` | Five public projections, five authenticated status/role gates, validators and explicit execution allowlist. |
+| `20261027000600_competition_management.sql` | Limited writer, seven owner-only policies, validators/locking/audit helpers, and nine authorized management RPCs. |
 
-Each file has an explicit transaction. Do not use a partial baseline. `app` must not already exist: absence of `IF NOT EXISTS` intentionally rejects conflicting objects. Preserve applied migration history and add a later ordered migration for corrections unless the architect authorizes local-only baseline repair. All three files were applied successfully and replayed on a disposable local instance; none was changed during verification or applied remotely.
+Each file has an explicit transaction. Do not use a partial baseline. Initially `app` must not exist: absence of `IF NOT EXISTS` intentionally rejects conflicting objects. Preserve applied migration history and add ordered forward migrations for changes. Original migrations remain unchanged; all application/execution is confined to the named disposable local instance, never a remote project.
 
 ## Local verification setup
 
@@ -56,9 +57,10 @@ Current access verification (run only after a clean disposable replay, with no e
 
 ```sh
 node supabase/tests/verify-access.mjs
+node supabase/tests/verify-management.mjs
 ```
 
-The runner enforces the local project/loopback target, creates four synthetic Auth identities, runs the Phase 2A SQL script, bootstraps the first synthetic Super Admin, and checks 190 Auth/SQL/PostgREST assertions. Keys and tokens stay in memory. Fixtures remain for inspection and must be cleared by the **local** reset before rerunning; the original SQL regression transaction itself still rolls back. The regression script now permits only the named SELECT policies for the two inert owners, retaining client-privilege and immutable-record assertions. No Phase 2A migration was edited.
+Run both commands in order after a clean replay. The first enforces the loopback target, creates synthetic Auth identities, runs the Phase 2A SQL regression, and checks 190 access assertions. The second provisions separate synthetic management users and runs real mutation/lifecycle/concurrency/audit-rollback tests. Keys and tokens stay in memory. Fixtures remain for inspection and must be cleared by the **local** reset before rerunning; the schema regression transaction itself still rolls back. Regression policy checks permit only the named reader and management-owner policies, retaining all client-privilege/immutable-record protections. Access inventory now includes 19 reviewed API functions/13 limited-owner policies; historical source checks remain scoped to their original migrations. No verified migration was edited.
 
 After starting/replaying, provision one synthetic identity through the LOCAL Auth signup API. Neither migrations nor test SQL writes to Auth internals. This PowerShell example keeps local keys, credentials, and tokens in memory rather than printing or saving them:
 
@@ -108,14 +110,14 @@ The disposable services and their volumes were stopped/removed after verificatio
 
 ## Security and migration risks
 
-All tables remain private in `app` with RLS enabled. Phase 2B-1 adds six SELECT-only policies for limited routine owners, with no client-role policies. PUBLIC/anon/authenticated/service_role retain no app schema usage/create, table/column privileges, or helper execution. Only explicit read-only RPC grants in exposed `api` are callable. Routine owners are NOLOGIN, have no table ownership or RLS bypass, and cannot create additional objects after migration. A service role's RLS bypass does not grant object privileges. Superusers/table owners remain trusted and can disable triggers.
+All tables remain private in `app` with RLS enabled. There are six reader-role SELECT policies plus seven management-owner policies; none grants client roles table access. PUBLIC/anon/authenticated/service_role retain no app schema usage/create, table/column privileges, or helper execution. Only explicitly allowlisted `api` RPCs are callable; management operations independently recheck current staff authority. All three routine owners are NOLOGIN without table ownership/RLS bypass, and temporary CREATE rights are revoked. The management owner has only selected competition/candidate fields and audit INSERT, not staff/ledger/media/result access. Superusers/table owners remain trusted and can disable triggers.
 
 Defaults are creator-specific. PostgreSQL's implicit PUBLIC function execution cannot be removed by a schema-only revoke. Migration 1 therefore globally revokes future table/sequence/function API privileges for its creator, then removes scoped additions in `app`. This also affects **future objects this creator creates in other schemas**, but does not alter existing Auth/Supabase objects or grants. Review this impact before applying anywhere beyond a disposable test database. Different future creators need equivalent hardening. Defaults do not automatically enable RLS on future tables; each migration must explicitly enable it and revoke grants.
 
-Historical FKs use restrictive deletion: Auth account, competition, and candidate deletion can be blocked; future workflows use controlled deactivation/archiving. Immutable triggers also reject zero-row UPDATE/DELETE. Snapshot rows remain owner-insertable until future publication operations validate completeness. Bootstrap now audits its one privileged action atomically, and role gates use protected current records; general mutation auditing/role management is not implemented. Cross-row ledger accuracy, vote allowance concurrency, verified-phone eligibility, nonnegative adjusted aggregate totals, exact reversals, lifecycle freezing, and correct winner/rank publication remain future work.
+Historical FKs use restrictive deletion: Auth account, competition, and candidate deletion can be blocked; no delete/archive operation exists in this stage. Immutable triggers also reject zero-row UPDATE/DELETE. Snapshot completeness remains future publication work. Bootstrap and every successful management mutation audit atomically; no audit-reading/role-management API exists. Management implements original-window configuration/candidate freezing and parent locks; vote allowance concurrency, verified-phone eligibility, adjusted aggregate totals, reversals, and result publication remain future work.
 
 ## Remaining boundary
 
-Only Phase 2B-1's read-only access/role/bootstrap foundation is authorized and implemented. Phase 2B-2 requires architect approval. Voting/phone eligibility, mutations/administrator management, adjustments/results, production operations, and frontend integration remain absent. Do not expose private tables or substitute a client role indicator for backend authorization.
+Only Phase 2B-2 competition/candidate management is currently authorized, on top of the reviewed access foundation. Phase 2B-3 requires architect approval. Voting/phone eligibility, staff management, adjustments/results, deletion/archiving/uploads, production operations, and frontend integration remain absent. Do not expose private tables or substitute a client role indicator for server authorization.
 
 References: [PostgreSQL default privilege scope](https://www.postgresql.org/docs/current/sql-alterdefaultprivileges.html), [statement/TRUNCATE triggers](https://www.postgresql.org/docs/current/sql-createtrigger.html), [Supabase RLS](https://supabase.com/docs/guides/database/postgres/row-level-security), [migration history](https://supabase.com/docs/guides/deployment/database-migrations).
