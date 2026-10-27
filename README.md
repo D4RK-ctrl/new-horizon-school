@@ -4,9 +4,9 @@ A school website and audience voting platform prototype for a future school pitc
 
 ## Status
 
-Phase 2B-2 adds secure backend competition/candidate management and atomic confidential auditing on top of the reviewed access foundation. Existing verified migrations remain unchanged; only a forward migration is added. The frontend still uses its Phase 1 fixtures; no remote database has been touched. Phase 0/0B planning remains authoritative. Phase 2B-3 requires separate architect authorization.
+Phase 2B-3A adds a server-mediated SMS verification gateway and private session-bound proof to the reviewed competition-management backend. The six approved migrations remain unchanged; one forward migration is added. The frontend still uses Phase 1 fixtures; no remote database has been touched. The voting transaction and Phase 2B-3B remain unauthorized.
 
-No connected frontend backend, Supabase browser packages, authentication UI, OTP, vote submission, enquiry intake, analytics collection, or cloud resources exist. Backend RPCs now support published reads, current staff checks, and limited competition/candidate mutations; no role-management, adjustment, or result-publication operations exist. Voting and frontend forms remain disabled. Admin routes are public demo layouts, **not secured portals**. No real personal data is collected; database verification uses synthetic local identities only.
+No connected frontend backend, Supabase browser packages, authentication UI, vote submission, enquiry intake, analytics collection, or cloud resources exist. Backend RPCs support published reads, current staff checks, limited competition/candidate mutations, and the separately isolated SMS proof gateway. No role-management, adjustment, or result-publication operations exist. Voting and frontend forms remain disabled. Admin routes are public demo layouts, **not secured portals**. Database verification uses synthetic local identities only; no real SMS delivery is configured.
 
 ## Planned stack
 
@@ -26,6 +26,7 @@ No connected frontend backend, Supabase browser packages, authentication UI, OTP
 - [Database migrations, local setup, verification, and Phase 2B boundary](supabase/README.md)
 - [Read-only access contract, permissions, local bootstrap, and Phase 2B-1 verification](docs/ACCESS_FOUNDATION.md)
 - [Competition/candidate RPCs, lifecycle, locks, audits, and Phase 2B-2 verification](docs/COMPETITION_MANAGEMENT.md)
+- [SMS gateway, session proof, local-only test configuration, and identity evidence](docs/VOTING_IDENTITY_REVIEW.md)
 
 ## Run locally
 

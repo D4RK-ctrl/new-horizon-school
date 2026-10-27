@@ -1,5 +1,7 @@
 # Phase 2B-2 competition management
 
+This contract records the reviewed management baseline. The separately authorized [Phase 2B-3A SMS proof](VOTING_IDENTITY_REVIEW.md) leaves these operations, lifecycle rules and six approved migrations unchanged; vote submission still requires separate authorization.
+
 Backend-only, through exposed `api`; the fixture-based frontend is unchanged. Forward migration `20261027000600_competition_management.sql` preserves all five verified migrations and adds nine RPCs, five private helpers, one limited owner role, and seven owner-only RLS policies. No voting, results, adjustments, role management, deletion, archiving, photo uploads, or frontend Auth is implemented.
 
 ## RPC contract

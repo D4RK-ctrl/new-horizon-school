@@ -34,7 +34,7 @@ An authenticated account alone grants neither voter eligibility nor staff author
 
 ## Voting rules and integrity
 
-1. Identify a voter from the authenticated Supabase user UUID with a currently confirmed +91 phone and an SMS-authenticated session; never accept a caller-supplied voter identity. Do not store phone numbers in public/application voting tables.
+1. Identify a voter from the authenticated Supabase user UUID with a currently confirmed +91 phone and an SMS-authenticated session; never accept a caller-supplied voter identity. The Phase 2B-3A trusted SMS gateway must itself verify the code with Auth and record a private session-bound proof; generic `otp` AMR or account phone confirmation alone is insufficient. Future vote submission must recheck live proof/session/current-phone validity. Do not store phone numbers in public/application voting tables.
 2. Configure a positive integer maximum N for each competition. A voter may cast at most N accepted votes in that competition, distributed among distinct candidates. N may exceed the number of candidates; distinctness still limits effective usage.
 3. Enforce one original vote per `(competition, voter, candidate)` using a unique database constraint. A rejected or repeated submission consumes no allowance. Accepted votes cannot be withdrawn or moved in the prototype.
 4. Accept only published, enabled, unarchived, unpaused competitions and eligible candidates during `starts_at <= database_time < ends_at`. Check the actual database clock after lock acquisition; browser clocks are advisory.

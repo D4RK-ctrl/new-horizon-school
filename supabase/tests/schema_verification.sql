@@ -26,7 +26,7 @@ $$;
 
 do $$
 declare
-    table_names text[] := array['staff_roles', 'media_assets', 'school_pages', 'events', 'competitions', 'candidates', 'gallery_items', 'competition_voters', 'votes', 'vote_adjustment_requests', 'vote_adjustments', 'result_publications', 'result_rows', 'enquiries', 'analytics_daily', 'audit_logs'];
+    table_names text[] := array['staff_roles', 'media_assets', 'school_pages', 'events', 'competitions', 'candidates', 'gallery_items', 'competition_voters', 'votes', 'vote_adjustment_requests', 'vote_adjustments', 'result_publications', 'result_rows', 'enquiries', 'analytics_daily', 'audit_logs','sms_proof_key','sms_verification_limits','sms_verification_challenges','sms_session_attestations'];
     table_name text;
     role_name text;
     table_oid oid;
@@ -43,7 +43,7 @@ begin
     if not exists (select 1 from auth.users where id = voter) then
         raise exception 'Provision a synthetic LOCAL Auth test identity first; no Auth tables are written by this test';
     end if;
-    if (select count(*) from pg_tables where schemaname = 'app') <> 16 then raise exception 'Wrong application table inventory'; end if;
+    if (select count(*) from pg_tables where schemaname = 'app') <> 20 then raise exception 'Wrong application table inventory'; end if;
     foreach table_name in array table_names loop
         table_oid := to_regclass(format('app.%I', table_name));
         if table_oid is null or not (select relrowsecurity from pg_class where oid = table_oid) then raise exception 'Missing table/RLS: %', table_name; end if;
@@ -62,6 +62,10 @@ begin
                     or (polname = 'management_insert' and polcmd = 'a')
                     or (polname = 'management_update' and polcmd = 'w')))
                 or (table_name = 'audit_logs' and polname = 'management_audit_insert' and polcmd = 'a')))
+            or (polroles=array[coalesce(to_regrole('nhs_sms_proof_owner')::oid,0::oid)] and (
+                (table_name in ('sms_proof_key','sms_session_attestations','sms_verification_limits','sms_verification_challenges') and polname='sms_select' and polcmd='r')
+                or (table_name in ('sms_session_attestations','sms_verification_limits','sms_verification_challenges') and polname='sms_insert' and polcmd='a')
+                or (table_name in ('sms_verification_limits','sms_verification_challenges') and polname='sms_update' and polcmd='w')))
         )) then raise exception 'Unexpected client or mutation policy: %', table_name; end if;
         foreach role_name in array array['anon', 'authenticated', 'service_role'] loop
             if has_schema_privilege(role_name, 'app', 'USAGE,CREATE') or has_table_privilege(role_name, table_oid, 'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER') then raise exception 'Unexpected access for % on %', role_name, table_name; end if;

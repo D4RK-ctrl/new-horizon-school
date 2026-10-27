@@ -1,5 +1,7 @@
 # Phase 2B-1 database access contract
 
+The results below record this foundation's reviewed baseline. [Phase 2B-3A](VOTING_IDENTITY_REVIEW.md) separately adds the trusted SMS gateway/session proof; it does not change the foundation migrations or infer SMS from generic OTP claims.
+
 This document records the reviewed Phase 2B-1 read-only foundation. The separately authorized [Phase 2B-2 management contract](COMPETITION_MANAGEMENT.md) adds nine staff-only competition/candidate APIs and a limited writer; no frontend integration is supplied. The verified Phase 2A/2B-1 migrations are unchanged. Foundation migrations `20261027000400_access_roles_and_policies.sql` and `20261027000500_read_only_api.sql` add two limited readers, six SELECT policies, and the ten entry points below.
 
 ## Callable surface

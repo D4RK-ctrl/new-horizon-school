@@ -51,7 +51,7 @@ async function main() {
   check(status.API_URL==='http://127.0.0.1:55431','Loopback target only');
   const beforeLedger=ledgerDigest();
   async function request(path,body,user,method='POST',profile=true) {
-    const headers={apikey:status.ANON_KEY,Authorization:`Bearer ${user?.access_token??status.ANON_KEY}`,'Content-Type':'application/json'};
+    const headers={apikey:status.ANON_KEY,Authorization:`Bearer ${user?.access_token??status.ANON_KEY}`,'Content-Type':'application/json',Connection:'close'};
     if(profile){headers['Accept-Profile']='api';headers['Content-Profile']='api';}
     const response=await fetch(`${status.API_URL}${path}`,{method,headers,...(body!==undefined?{body:JSON.stringify(body)}:{})});
     return {status:response.status,data:await response.json()};

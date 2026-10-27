@@ -9,10 +9,14 @@ flowchart LR
   Browser[Visitor / voter / staff browser] --> Static[Vercel: Vite static assets]
   Crawler[Browser / social crawler] --> HTML[Vercel Function: candidate HTML]
   Browser --> Auth[Supabase Auth]
+  Browser --> SMS[Trusted Node SMS verification gateway]
+  SMS --> Auth
+  SMS --> Proof[Server-only SMS proof RPCs]
   Browser --> API[Supabase Data API: scoped reads and RPCs]
   HTML --> Public[Public candidate projection only]
   Public --> DB[(Supabase PostgreSQL)]
   API --> DB
+  Proof --> DB
   Browser --> Media[Supabase Storage: approved public images]
   Browser --> YT[YouTube timestamp links]
   Browser --> Intake[Supabase Edge Function: protected enquiry / analytics intake]
@@ -49,7 +53,7 @@ Prefer `SECURITY INVOKER` where sufficient; narrow `SECURITY DEFINER` functions 
 
 ## Authentication and role escalation prevention
 
-Voters use Supabase SMS OTP sign-in with normalized E.164 +91 numbers. Each vote checks the trusted Auth user record has a confirmed current phone and that the validated session's authentication method includes SMS OTP. An email/password session with an attached phone alone is insufficient. Do not trust a submitted phone, `user_metadata`, UI state, or caller-supplied JWT text. Confirm the exact trusted AMR claim shape in implementation tests; issue or verify SMS sessions through Auth, never through a client assertion.
+Voters request Supabase SMS delivery, then exchange the code through the trusted Node gateway authorized in Phase 2B-3A. The gateway itself calls Auth's explicit SMS verification flow and records a private proof only for the verified returned session/current +91 phone. Generic `otp` AMR is shared with email and never establishes the channel. Future voting must require a live matching proof, current confirmed phone and existing/unexpired Auth session inside its own transaction. Email/password, email OTP, user metadata and direct Auth SMS sessions without gateway proofs are insufficient. See [the identity contract and local evidence](VOTING_IDENTITY_REVIEW.md). There is no deployed gateway or voting transaction yet.
 
 Phone edits must use Auth's verified phone-change flow. Proposed prototype policy disables application account deletion/recreation and phone-number changes during an active competition; any exception needs operator review. Document and test the eventual recovery/deletion process to avoid issuing a fresh voting identity. This is not a one-person guarantee.
 
